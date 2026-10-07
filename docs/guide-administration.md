@@ -53,6 +53,8 @@ Cocher « Envoyer un e-mail de confirmation » ou « Envoyer un rappel » défin
 
 Pour que les messages partent, le service d’envoi doit être configuré et l’expéditeur vérifié. Les rappels nécessitent également une tâche automatique. « Configuré » indique la présence des paramètres, pas la preuve de réception d’un message.
 
+L’adresse **fashionafrobraidsoff@gmail.com**, fournie par le propriétaire, reçoit les réponses aux confirmations et rappels. La modifier dans **Paramètres → E-mail** change cette adresse de réponse. L’adresse d’expédition est distincte : Resend exige un domaine vérifié et ne permet pas d’expédier au nom de gmail.com. Une adresse comme `reservation@fashionafrobraids.fr` reste un exemple à vérifier avant utilisation ; la configuration d’envoi n’est pas encore active.
+
 Dans la préparation, le **dernier passage observé** permet de vérifier que la tâche de rappel fonctionne réellement. Le bouton **Envoyer les e-mails dus** envoie les messages déjà en attente quand le fournisseur est connecté ; ce n’est pas un bouton d’envoi à une adresse de test arbitraire.
 
 Pour un essai avant ouverture, utiliser uniquement une réservation de test avec une adresse dont le propriétaire a autorisé l’utilisation. Vérifier la réception de la confirmation et du rappel, puis l’arrêt des rappels après annulation. Un rendez-vous réservé après l’heure prévue du rappel ne reçoit pas un deuxième message immédiat.

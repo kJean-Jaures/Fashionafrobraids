@@ -127,10 +127,41 @@ test("une suppression de catalogue persiste après fermeture et réouverture de 
 test("l’envoi e-mail suit les réponses du fournisseur et ne renvoie pas la confirmation déjà envoyée", async () => {
   const saved = await createBooking(booking()); process.env.RESEND_API_KEY = "test-only-key"; process.env.EMAIL_FROM = "salon@example.com";
   const originalFetch = globalThis.fetch; let requests = 0;
-  globalThis.fetch = async (url, options) => { assert.equal(String(url), "https://api.resend.com/emails"); const payload = JSON.parse(String(options?.body)); assert.deepEqual(payload.to, ["test@example.com"]); requests++; return new Response('{}', { status: 201 }); };
+  globalThis.fetch = async (url, options) => { assert.equal(String(url), "https://api.resend.com/emails"); const payload = JSON.parse(String(options?.body)); assert.deepEqual(payload.to, ["test@example.com"]); assert.equal(payload.from, "salon@example.com"); assert.equal(payload.reply_to, initialSettings.email); requests++; return new Response('{}', { status: 201 }); };
   try { assert.deepEqual(await deliverNotifications(), { sent: 1, failed: 0, configured: true }); assert.deepEqual(await deliverNotifications(), { sent: 0, failed: 0, configured: true }); assert.equal(requests, 1); }
   finally { globalThis.fetch = originalFetch; }
   assert.equal((await (await db()).query("SELECT id FROM notifications WHERE booking_id=$1 AND status='sent'", [saved.id])).rows.length, 1);
+});
+test("les réponses au rappel utilisent l’adresse actualisée du salon et une adresse vide est omise", async () => {
+  const saved = await createBooking(booking());
+  const connection = await db();
+  await connection.query("UPDATE notifications SET status='sent' WHERE booking_id=$1 AND kind LIKE 'confirmation-%'", [saved.id]);
+  await connection.query("UPDATE notifications SET due_at=$2 WHERE booking_id=$1 AND kind LIKE 'reminder-%'", [saved.id, Date.now() - 60000]);
+  await saveSettings({ ...initialSettings, email: "reponses@example.com" });
+  process.env.RESEND_API_KEY = "test-only-key"; process.env.EMAIL_FROM = "salon@example.com";
+  const originalFetch = globalThis.fetch; const payloads: Record<string, unknown>[] = [];
+  globalThis.fetch = async (_url, options) => { payloads.push(JSON.parse(String(options?.body))); return Response.json({ id: "simulated-email" }); };
+  try {
+    assert.deepEqual(await deliverNotifications(), { sent: 1, failed: 0, configured: true });
+    assert.equal(payloads[0].reply_to, "reponses@example.com");
+    assert.equal(payloads[0].subject, "Votre rendez-vous approche");
+    await saveSettings({ ...initialSettings, email: "" });
+    await createBooking(booking({ time: "13:30" }));
+    assert.deepEqual(await deliverNotifications(), { sent: 1, failed: 0, configured: true });
+    assert.equal(Object.hasOwn(payloads[1], "reply_to"), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+test("l’adresse fournie complète une ancienne base sans écraser une adresse personnalisée ni les rendez-vous", async () => {
+  const saved = await createBooking(booking());
+  await saveSettings({ ...initialSettings, email: "" });
+  await (await db()).query("DELETE FROM migration_history WHERE id='salon-reply-email-20261007'");
+  await closeDatabase();
+  assert.equal((await getSettings()).email, "fashionafrobraidsoff@gmail.com");
+  assert.equal((await readBooking(saved.id, saved.token)).status, saved.status);
+  await saveSettings({ ...initialSettings, email: "autre@example.com" });
+  await (await db()).query("DELETE FROM migration_history WHERE id='salon-reply-email-20261007'");
+  await closeDatabase();
+  assert.equal((await getSettings()).email, "autre@example.com");
 });
 function paypalTestConfig() {
   process.env.PAYPAL_CLIENT_ID = "test-only-client-id"; process.env.PAYPAL_CLIENT_SECRET = "test-only-client-secret";

@@ -28,7 +28,7 @@ export type Settings = {
 };
 export const salon = { name: "Fashion Afro Braids Paris", timezone: "Europe/Paris", address: "74 Avenue de Saint-Ouen, 75018 Paris", phone: "+33 6 25 19 74 29" };
 export const initialSettings: Settings = {
-  ...salon, email: "", pricingApproved: true, bookingDays: 60, advanceMinutes: 120,
+  ...salon, email: "fashionafrobraidsoff@gmail.com", pricingApproved: true, bookingDays: 60, advanceMinutes: 120,
   bookingBufferMinutes: 0, bookingInstructions: "", confirmationEmail: true, reminderEmail: true, reminderHours: 24,
   schedule: Object.fromEntries(Array.from({ length: 7 }, (_, day) => [String(day), { closed: false, start: "08:30", end: "20:00" }])),
   instagram: "", tiktok: "", facebook: "", legalName: "", siret: "", legalEmail: ""

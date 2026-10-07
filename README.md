@@ -76,6 +76,8 @@ Les notifications sont enregistrées en base. Sans service configuré, elles res
 
 Pour activer les envois, configurer **RESEND_API_KEY** et **EMAIL_FROM** avec un expéditeur vérifié. Dans l’environnement cloud, le domaine nécessaire est `api.resend.com`. La clé doit être fournie dans les paramètres sécurisés ou chez l’hébergeur, jamais dans le chat ou le dépôt.
 
+L’adresse de réponse du salon est **fashionafrobraidsoff@gmail.com**, fournie par le propriétaire. Elle est modifiable dans **Paramètres → E-mail** et transmise comme `Reply-To` pour les confirmations et rappels. L’expéditeur `EMAIL_FROM` reste une adresse d’un domaine vérifié dans Resend ; ne pas utiliser une adresse Gmail comme expéditeur Resend. Les anciennes bases reçoivent l’adresse fournie uniquement si leur champ E-mail est vide, sans remplacer une adresse personnalisée.
+
 Configurer une tâche planifiée, par exemple toutes les cinq minutes, qui appelle `GET /api/cron/reminders` avec l’en-tête `Authorization: Bearer <CRON_SECRET>`. Définir `CRON_SECRET` de façon sécurisée. Le traitement envoie les confirmations dues et les rappels **24 heures avant** le rendez-vous. Les rendez-vous pris moins de 24 heures avant n’ont pas de rappel anticipé. L’administration permet aussi de déclencher les envois dus.
 
 Les envois sont réessayés jusqu’à trois tentatives. La clé d’idempotence évite les doublons chez le fournisseur. Les tâches interrompues peuvent être reprises après 15 minutes. Les tests de transport utilisent un fournisseur simulé ; aucun envoi réel n’a été vérifié sans compte configuré.

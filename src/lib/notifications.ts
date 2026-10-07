@@ -33,7 +33,7 @@ export async function syncUpcomingReminders(connection: Connection, settings: Se
 type Notification = { id: string; recipient: string; subject: string; body: string; attempts: number };
 export async function deliverNotifications() {
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) return { sent: 0, failed: 0, configured: false };
-  const entries = await transaction(async connection => {
+  const { entries, replyTo } = await transaction(async connection => {
     await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
     const settings = await getSettings(connection);
     await connection.query("UPDATE notifications SET status='failed' WHERE status='sending' AND claimed_at<$1", [Date.now() - 15 * 60000]);
@@ -42,12 +42,12 @@ export async function deliverNotifications() {
     if (!settings.reminderEmail) await connection.query("UPDATE notifications SET status='cancelled' WHERE kind LIKE 'reminder-%' AND status IN ('pending','failed')");
     const found = (await connection.query<Notification>("SELECT id,recipient,subject,body,attempts FROM notifications WHERE status IN ('pending','failed') AND attempts<3 AND due_at<=$1 ORDER BY due_at LIMIT 20 FOR UPDATE SKIP LOCKED", [Date.now()])).rows;
     for (const entry of found) await connection.query("UPDATE notifications SET status='sending',attempts=attempts+1,claimed_at=$2 WHERE id=$1", [entry.id, Date.now()]);
-    return found;
+    return { entries: found, replyTo: settings.email || undefined };
   });
   let sent = 0; let failed = 0;
   for (const entry of entries) {
     try {
-      const result = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": entry.id }, body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [entry.recipient], subject: entry.subject, text: entry.body }), signal: AbortSignal.timeout(10000) });
+      const result = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": entry.id }, body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyTo, to: [entry.recipient], subject: entry.subject, text: entry.body }), signal: AbortSignal.timeout(10000) });
       if (!result.ok) throw new Error(`Fournisseur e-mail : ${result.status}`);
       await (await db()).query("UPDATE notifications SET status='sent',last_error=NULL WHERE id=$1", [entry.id]); sent++;
     } catch (error) {

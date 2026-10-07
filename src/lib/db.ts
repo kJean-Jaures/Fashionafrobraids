@@ -53,6 +53,7 @@ async function initialise(connection: Connection) {
     await migrateCatalogueSelection(connection);
     await migratePinterestPhotos(connection);
     await migrateDurationEstimates(connection);
+    await migrateSalonEmail(connection);
     return;
   }
   for (const [collection, values] of Object.entries({ services: initialServices, products: initialProducts, gallery: initialGallery, reviews: initialReviews, employees: [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }] })) {
@@ -67,6 +68,13 @@ async function initialise(connection: Connection) {
   await migrateCatalogueSelection(connection);
   await migratePinterestPhotos(connection);
   await migrateDurationEstimates(connection);
+  await migrateSalonEmail(connection);
+}
+async function migrateSalonEmail(connection: Connection) {
+  if ((await connection.query("SELECT id FROM migration_history WHERE id='salon-reply-email-20261007'")).rows.length) return;
+  // Adresse fournie par le propriétaire ; préserver toute adresse déjà personnalisée.
+  await connection.query("UPDATE settings SET data=jsonb_set(data,'{email}',$1::jsonb) WHERE id='salon' AND COALESCE(data->>'email','')=''", [JSON.stringify(initialSettings.email)]);
+  await connection.query("INSERT INTO migration_history(id) VALUES('salon-reply-email-20261007') ON CONFLICT DO NOTHING");
 }
 async function migrateDurationEstimates(connection: Connection) {
   await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");

@@ -41,6 +41,24 @@ Ne jamais mettre les identifiants dans le chat, les captures d’écran ou Git. 
 
 ## Confirmations et rappels e-mail
 
+### Adresse de réponse et accès DNS
+
+Le propriétaire a fourni **fashionafrobraidsoff@gmail.com**. Le site utilise cette adresse pour les réponses aux confirmations et rappels, via `Reply-To`. Elle est modifiable dans **Paramètres → E-mail**. Les nouvelles bases utilisent cette adresse ; les bases existantes sont complétées seulement si le champ est vide, sans remplacer une adresse déjà personnalisée.
+
+Resend ne peut pas envoyer depuis gmail.com, domaine que le salon ne contrôle pas. Il faut vérifier un domaine du salon pour l’expédition, par exemple avec `Fashion Afro Braids <reservation@fashionafrobraids.fr>` comme `EMAIL_FROM` une fois ce domaine vérifié. Cette adresse d’envoi est un exemple, pas une connexion déjà activée. Les réponses arriveront sur le Gmail choisi.
+
+Pour trouver les DNS :
+
+1. Se connecter à [Squarespace Domains](https://account.squarespace.com/domains).
+2. Sélectionner **fashionafrobraids.fr**, puis chercher **DNS / Paramètres DNS**. Les libellés peuvent varier selon la langue du compte.
+3. Si le domaine n’apparaît pas, identifier le fournisseur où il a été acheté : les DNS peuvent être gérés ailleurs même si le site est construit avec Squarespace.
+4. Dans Resend, ajouter le domaine, puis reporter exactement les enregistrements de vérification fournis dans ses DNS. Conserver les enregistrements actuels du site et de la messagerie.
+5. Attendre que Resend indique le domaine vérifié, puis renseigner les variables sécurisées ci-dessous et tester la réception avec une adresse autorisée.
+
+L’accès aux réglages DNS n’est pas encore confirmé par le propriétaire. Aucun enregistrement DNS ni routage du site actuel n’a été modifié.
+
+### Activer et vérifier les envois
+
 1. Préparer le domaine ou l’expéditeur dans [Resend](https://resend.com/domains), puis ajouter `RESEND_API_KEY` et `EMAIL_FROM` dans les variables sécurisées du serveur. L’expéditeur doit être autorisé par Resend.
 2. Dans **Préparer les réservations**, activer les confirmations et rappels, choisir le délai de rappel (1 à 168 heures, 24 h par défaut) et saisir les consignes réellement appliquées au salon. Aucune consigne métier n’est inventée par défaut.
 3. Configurer une valeur aléatoire robuste pour `CRON_SECRET` dans les variables sécurisées du serveur.
