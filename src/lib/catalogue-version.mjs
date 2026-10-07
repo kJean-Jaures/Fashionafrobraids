@@ -1,1 +1,1 @@
-export const catalogueVersion = "fashion-booking-readiness-20261007";
+export const catalogueVersion = "fashion-deposit-policy-images-20261007";

@@ -5,6 +5,7 @@ import { possibleSlots, timestamp, validDate } from "./time";
 import type { BookingInput, OrderInput } from "./validation";
 import { queueBookingEmails } from "./notifications";
 import { paypalConfigured } from "./paypal-config";
+import { depositPolicy, depositCancellationNotice } from "./booking-policy";
 
 export class DomainError extends Error { constructor(message: string, public status = 400) { super(message); } }
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -14,6 +15,7 @@ export type BookingData = {
   service: string; variantId: string; size: string; length: string; options: string[];
   price: number; duration: number; deposit: number; depositPaid: boolean; employee: string;
   paymentProvider?: "paypal"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  depositPolicy?: typeof depositPolicy;
 };
 export type Booking = { id: string; employee_id: string; start_time: number; end_time: number; status: "confirmed" | "cancelled" | "pending_payment"; expires_at: number | null; data: BookingData; created_at: number };
 export type OrderItem = { productId: string; name: string; quantity: number; price: number };
@@ -72,6 +74,7 @@ export async function createBooking(input: BookingInput) {
       const slot = possibleSlots(input.date, selected.duration, Date.now(), settings, employee.schedule).find(slot => slot.time === input.time);
       if (!slot || await busy(connection, employee.id, slot.start, slot.end, "", settings.bookingBufferMinutes)) continue;
       const data: BookingData = { name: input.name, email: input.email, phone: input.phone, note: input.note, serviceId: service.id, service: service.name, variantId: selected.variant.id, size: selected.variant.size, length: selected.variant.length, options: selected.options.map(option => option.label), price: selected.price, duration: selected.duration, deposit: selected.deposit, depositPaid: false, employee: employee.name };
+      if (selected.deposit) data.depositPolicy = depositPolicy;
       const status = selected.deposit ? "pending_payment" : "confirmed";
       // Le créneau est retenu pendant le paiement, puis libéré sans paiement vérifié.
       const expiry = selected.deposit ? Date.now() + 35 * 60000 : null;
@@ -93,7 +96,7 @@ export async function readBooking(id: string, token: string) {
 export async function cancelBooking(id: string, token: string) {
   const booking = await readBooking(id, token);
   if (booking.start_time <= Date.now()) throw new DomainError("Ce rendez-vous a déjà commencé. Contactez le salon.", 409);
-  if (booking.data.depositPaid) throw new DomainError("Un acompte a été versé. Contactez le salon pour l’annulation et les conditions de remboursement.", 409);
+  if (booking.data.depositPaid) throw new DomainError(`${booking.data.depositPolicy === depositPolicy ? depositCancellationNotice + " " : ""}Un acompte a été versé. Contactez le salon pour annuler ou modifier ce rendez-vous.`, 409);
   await cancelBookingAdmin(id);
   return { ...booking, status: "cancelled" };
 }

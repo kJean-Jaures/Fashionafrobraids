@@ -8,6 +8,13 @@ test("accueil, navigation mobile, galerie et absence de débordement", async ({ 
   await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
   await expect(page.locator(".hero-image img")).toHaveAttribute("src", /fashion-original-1/);
   await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
+  for (const [category, hairstyle] of [["Extensions", "bouclées"], ["Tissages & Perruques", "Tissage lisse"], ["Événementiel", "Chignon de cérémonie"]]) {
+    const photo = page.locator(".expertise-card").filter({ has: page.getByRole("heading", { name: category, exact: true }) }).locator("img");
+    await photo.scrollIntoViewIfNeeded();
+    await expect(photo).toHaveAttribute("alt", new RegExp(hairstyle));
+    await expect.poll(() => photo.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Ouvrir le menu" }).click(); await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("link", { name: "Nos coiffures" }).click();
   await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.locator(".gallery-item").first().click();
@@ -167,6 +174,7 @@ test("le logo original, les prix de l’affiche et les 10 € sont visibles sur 
   await page.getByRole("link", { name: "Réserver cette coiffure" }).click();
   await expect(page.locator(".summary-row").filter({ hasText: "Acompte" })).toHaveText(/10/);
   await expect(page.locator(".summary-row").filter({ hasText: "Solde au salon" })).toHaveText(/75/);
+  await expect(page.locator(".deposit-policy-note")).toContainText("n’est pas remboursable");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Choisir mon créneau" }).click();
   const date = addDays(parisDate(), 10);
@@ -177,6 +185,9 @@ test("le logo original, les prix de l’affiche et les 10 € sont visibles sur 
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
   await expect(page.getByRole("button", { name: /Payer l’acompte.*10/ })).toBeDisabled();
   await expect(page.getByText(/Le paiement de l’acompte sera bientôt disponible/)).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveAccessibleName(/n’est pas remboursable/);
+  await page.goto("/politique-reservation");
+  await expect(page.getByText(/l’acompte de 10 € reste acquis au salon et n’est pas remboursé/)).toBeVisible();
   await page.goto("/tarifs");
   await expect(page.locator(".price-service-photo").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

@@ -4,11 +4,12 @@ import { db, transaction, getSettings } from "./db";
 import { money, durationLabel, type Settings } from "./catalog";
 import { formatDate, formatTime } from "./time";
 import type { Booking } from "./domain";
+import { depositPolicy, depositCancellationNotice } from "./booking-policy";
 
 function bookingEmail(booking: Booking, settings: Settings) {
   const detail = [booking.data.service, booking.data.size, booking.data.length].filter(value => value && value !== "Standard").join(" · ");
   const paid = booking.data.depositPaid ? booking.data.deposit : 0;
-  return `Bonjour ${booking.data.name},\n\n${detail}\n${formatDate(booking.start_time)} à ${formatTime(booking.start_time)}\nDurée : ${durationLabel(booking.data.duration)} · fin prévue à ${formatTime(booking.end_time)}\nTotal : ${money(booking.data.price)}\nAcompte payé : ${money(paid)}\nÀ régler au salon : ${money(booking.data.price - paid)}\nRéférence : ${booking.id}\n\n${settings.name}\n${settings.address}\n${settings.phone}${settings.bookingInstructions ? `\n\nPour préparer votre visite\n${settings.bookingInstructions}` : ""}\n\nÀ bientôt au salon !`;
+  return `Bonjour ${booking.data.name},\n\n${detail}\n${formatDate(booking.start_time)} à ${formatTime(booking.start_time)}\nDurée : ${durationLabel(booking.data.duration)} · fin prévue à ${formatTime(booking.end_time)}\nTotal : ${money(booking.data.price)}\nAcompte payé : ${money(paid)}${paid > 0 && booking.data.depositPolicy === depositPolicy ? `\n${depositCancellationNotice}` : ""}\nÀ régler au salon : ${money(booking.data.price - paid)}\nRéférence : ${booking.id}\n\n${settings.name}\n${settings.address}\n${settings.phone}${settings.bookingInstructions ? `\n\nPour préparer votre visite\n${settings.bookingInstructions}` : ""}\n\nÀ bientôt au salon !`;
 }
 async function queueReminder(connection: Connection, booking: Booking, settings: Settings, updateUnsent = false) {
   if (!settings.reminderEmail || booking.status !== "confirmed" || booking.start_time <= Date.now()) return;

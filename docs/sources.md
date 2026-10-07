@@ -1,5 +1,15 @@
 # Provenance des contenus
 
+## Photos des expertises de l’accueil, corrigées le 7 octobre 2026
+
+Les cartes Extensions, Tissages & Perruques et Événementiel utilisent respectivement une pose d’extensions bouclées au crochet, un tissage lisse avec raie centrale et un chignon de cérémonie avec accessoire de mariée. Ce sont des **photos d’inspiration Pinterest**, sans attribution de réalisation au salon. Les fichiers originaux sont conservés sans retouche ; seul le cadrage d’affichage est adapté sur téléphone et ordinateur.
+
+Les liens sources et descriptions sont conservés dans `src/lib/reference-data/home-expertise-images.json` :
+
+- Extensions : https://www.pinterest.com/pin/1759287349467331/
+- Tissages & Perruques : https://www.pinterest.com/pin/131448882871673103/ (photo déjà présente dans le catalogue des tissages).
+- Événementiel : https://www.pinterest.com/pin/6544361953338254/
+
 Consultation du site public https://fashionafrobraids.fr le 7 octobre 2026.
 
 Les avis de Léa Kim, Myriam, Omar Badji et Pierre Yole sont repris de la page d’accueil. Aucun score numérique n’était affiché, donc aucune note numérique n’est ajoutée.

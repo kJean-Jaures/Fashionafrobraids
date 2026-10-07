@@ -393,6 +393,7 @@ input[type=checkbox] { accent-color:#883056; height:15px; width:15px; }
 .summary-total strong { font-family:var(--serif); font-size:40px; font-weight:500; }
 .summary-row { display:flex; align-items:center; justify-content:space-between; gap:18px; font-size:11px; padding:10px 0; }
 .summary-row strong { font-weight:500; }
+.deposit-policy-note { margin:12px 0 0; padding:12px 14px; border-left:3px solid var(--rose-deep); border-radius:0 8px 8px 0; background:var(--rose-soft); color:var(--ink); font-size:12px; line-height:1.7; }
 .summary-card .pricing-notice { margin:20px 0; background:#e7cad7; font-size:9px; }
 .summary-help { display:flex; align-items:center; justify-content:center; gap:8px; font-size:8px; padding:22px 0 0; margin-top:20px; border-top:1px solid #d5b1c1; }
 .summary-empty { text-align:center; padding:40px 0; }

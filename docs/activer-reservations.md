@@ -13,7 +13,7 @@ L’intégration utilise PayPal Checkout. Un compte **PayPal Business** est néc
 5. Effectuer une réservation avec un compte acheteur Sandbox distinct. Vérifier le montant de **10,00 EUR**, le passage de « Acompte en attente » à « Confirmé », le solde au salon, le retour navigateur et le webhook. Vérifier qu’un événement répété ne confirme ni n’encaisse deux fois.
 6. Lorsque le test est validé, configurer les identifiants et le webhook Live, passer `PAYPAL_MODE=live` et utiliser `DEMO_MODE=false` sur le véritable site public. La démonstration bloque les paiements Live.
 
-Le créneau est retenu 35 minutes pendant le paiement. Sans configuration PayPal, aucun acompte n’est encaissé et aucune réservation avec acompte n’est confirmée gratuitement. Un client peut être orienté vers le téléphone du salon. Le remboursement d’un acompte annulé doit être traité dans PayPal ; il n’est pas automatique.
+Le créneau est retenu 35 minutes pendant le paiement. Sans configuration PayPal, aucun acompte n’est encaissé et aucune réservation avec acompte n’est confirmée gratuitement. Un client peut être orienté vers le téléphone du salon. L’acompte de **10 € n’est pas remboursable si la cliente annule**. La règle est affichée avant paiement et dans les confirmations des nouvelles réservations. Une annulation par le salon ou un paiement encaissé sans rendez-vous confirmé doit être examiné directement dans PayPal ; aucun remboursement automatique n’est déclenché.
 
 Ne jamais mettre les identifiants dans le chat, les captures d’écran ou Git. Redémarrer le serveur après mise à jour de ses variables. Aucune clé de paiement n’est saisie dans le formulaire administrateur du site.
 

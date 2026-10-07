@@ -16,6 +16,7 @@ import { bookingSchema, orderSchema } from "../src/lib/validation";
 import { deliverNotifications } from "../src/lib/notifications";
 import { handlePaymentWebhook, checkoutSession, captureBookingPayment } from "../src/lib/payments";
 import { bookingReadiness } from "../src/lib/booking-readiness";
+import { depositPolicy, depositCancellationNotice } from "../src/lib/booking-policy";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
@@ -170,6 +171,23 @@ test("un webhook PayPal vérifié confirme exactement 10 € une seule fois", as
   const confirmed = await readBooking(saved.id, saved.token); assert.equal(confirmed.status, "confirmed"); assert.equal(confirmed.data.depositPaid, true); assert.equal(confirmed.data.deposit, 1000);
   assert.equal((await (await db()).query("SELECT * FROM payment_events")).rows.length, 1);
   assert.equal((await (await db()).query("SELECT * FROM notifications WHERE booking_id=$1", [saved.id])).rows.length, 2);
+});
+test("la règle d’acompte non remboursable est conservée avec la réservation et ses confirmations", async () => {
+  const saved = await pendingPayment();
+  assert.equal(saved.data.depositPolicy, depositPolicy);
+  const event = paymentEvent();
+  await mockPayPal(async () => { await handlePaymentWebhook(event.payload, event.headers); });
+  const confirmed = await readBooking(saved.id, saved.token);
+  assert.equal(confirmed.data.deposit, 1000);
+  assert.equal(confirmed.data.depositPolicy, depositPolicy);
+  const messages = await (await db()).query<{ body: string }>("SELECT body FROM notifications WHERE booking_id=$1", [saved.id]);
+  assert.equal(messages.rows.length, 2);
+  for (const message of messages.rows) assert.ok(message.body.includes(depositCancellationNotice));
+  await assert.rejects(cancelBooking(saved.id, saved.token), /n’est pas remboursable/);
+  const unchanged = await readBooking(saved.id, saved.token);
+  assert.equal(unchanged.status, "confirmed");
+  assert.equal(unchanged.data.depositPaid, true);
+  assert.equal(unchanged.data.paypalCaptureId, "CAPTURE-TEST");
 });
 test("un montant ou une devise PayPal incorrects ne confirment pas la réservation", async () => {
   const saved = await pendingPayment();
