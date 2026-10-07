@@ -2,6 +2,20 @@
 
 Dans `/admin`, ouvrir **Préparer les réservations**. Cet espace réunit les connexions, les prestations à vérifier, l’équipe et les consignes. « Configuré » signifie que les paramètres sont présents ; il faut encore vérifier le fonctionnement réel avec les fournisseurs.
 
+Pour comprendre les rubriques et préparer l’équipe, consulter [le guide d’utilisation de l’administration](guide-administration.md).
+
+## Préparer les connexions avant la mise en ligne
+
+La préparation peut se faire avant l’ouverture publique : utiliser PayPal **Sandbox**, un expéditeur e-mail vérifié et une réservation de test. Aucun paiement réel n’est nécessaire pour vérifier le parcours Sandbox. Le compte marchand de test Sandbox et les comptes PayPal destinés aux vrais encaissements sont distincts ; un compte Business est nécessaire pour recevoir les paiements réels du salon.
+
+Pour recevoir la notification automatique de PayPal, l’application de test doit disposer d’une adresse **HTTPS joignable depuis Internet**. Un lien HTTPS temporaire qui renvoie vers l’application locale peut servir aux essais. L’adresse locale de l’ordinateur ne peut pas être utilisée directement comme webhook. Ne pas utiliser le domaine encore relié à Squarespace comme s’il servait déjà cette nouvelle application.
+
+Les confirmations peuvent être envoyées depuis l’application locale une fois Resend et l’expéditeur configurés. Pour les rappels, le serveur et le mécanisme d’envoi doivent être actifs au moment prévu ; un ordinateur fermé n’envoie pas de rappel. Pendant les essais, les e-mails dus peuvent être déclenchés depuis l’administration sur une base contenant uniquement des réservations de test autorisées. La tâche planifiée sera nécessaire pour un fonctionnement permanent.
+
+Sur le PC du propriétaire, les variables sont ajoutées au fichier privé `.env.local`, puis le serveur est redémarré. Dans le cloud ou chez l’hébergeur, utiliser les paramètres sécurisés. Ne jamais transmettre les valeurs dans le chat ou Git.
+
+État vérifié le **8 octobre 2026** dans l’environnement de développement : administration protégée et accessible après connexion ; confirmations et rappels activés avec un délai de 24 h ; PayPal, fournisseur d’e-mails et tâche de rappel encore non configurés. Aucun encaissement ni envoi réel n’a été validé. Les exigences de configuration sont déjà déclarées dans le brouillon cloud.
+
 ## Acompte de 10 € avec PayPal
 
 L’intégration utilise PayPal Checkout. Un compte **PayPal Business** est nécessaire ; le compte personnel actuel doit être converti ou remplacé par un compte Business par le propriétaire. Cette opération n’est pas effectuée par le site.

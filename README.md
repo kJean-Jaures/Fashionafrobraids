@@ -16,6 +16,8 @@ La galerie se parcourt avec des boutons précédent/suivant et les flèches du c
 
 L’espace administrateur comprend désormais **Préparer les réservations** : état de la connexion PayPal, envoi e-mail, dernier passage réellement observé de la tâche de rappel, tarifs et durées à vérifier par variante, équipe et consignes. Les connexions configurées restent à tester avec les comptes du salon. Voir [le guide d’activation](docs/activer-reservations.md).
 
+Pour utiliser le tableau de bord au quotidien, consulter [le guide d’administration du salon](docs/guide-administration.md), avec les rubriques, l’accès local et les étapes de préparation de l’équipe.
+
 Le délai de rappel est réglable de 1 à 168 heures (24 h par défaut), avec activation séparée des confirmations et rappels. Les e-mails incluent la fin prévue, l’acompte payé, le solde et les consignes saisies par le salon. Les rappels futurs non envoyés sont recalculés après modification ; ceux déjà envoyés sont conservés. Les messages de rendez-vous passés sont ignorés. La pause optionnelle entre deux clientes (0 à 120 minutes, 0 par défaut) est vérifiée lors du choix, de la réservation, du déplacement et d’une confirmation de paiement tardive. Les changements d’horaires ou d’équipe qui invalideraient un rendez-vous existant sont refusés. Les anciennes bases reçoivent les nouvelles valeurs par défaut à la lecture, sans écraser leurs données.
 
 Node.js **24** et npm sont nécessaires. Le catalogue et la configuration locale sont initialisés automatiquement ; aucun compte externe n’est nécessaire pour développer le site. Les réservations publiques nécessitent le paiement de l’acompte PayPal ; la boutique conserve le règlement au retrait.
