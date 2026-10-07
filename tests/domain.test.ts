@@ -4,8 +4,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { db, closeDatabase, one, publicCatalog } from "../src/lib/db";
-import { initialSettings, initialServices, canBookVariant, durationIsEstimated, priceIsVerified, type Service } from "../src/lib/catalog";
+import { db, closeDatabase, one, publicCatalog, getSettings } from "../src/lib/db";
+import { initialSettings, initialServices, canBookVariant, durationIsEstimated, priceIsVerified, type Service, type Employee } from "../src/lib/catalog";
 import { referenceAppointments } from "../src/lib/acuity-catalog";
 import { retiredServiceIds, retiredReferenceIds, retiredGalleryIds } from "../src/lib/catalogue-selection";
 import { pinterestPhotoLabel, pinterestPhotos } from "../src/lib/pinterest-service-photos";
@@ -15,6 +15,7 @@ import { addDays, parisDate, timestamp, localTimeToEpoch } from "../src/lib/time
 import { bookingSchema, orderSchema } from "../src/lib/validation";
 import { deliverNotifications } from "../src/lib/notifications";
 import { handlePaymentWebhook, checkoutSession, captureBookingPayment } from "../src/lib/payments";
+import { bookingReadiness } from "../src/lib/booking-readiness";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
@@ -25,7 +26,9 @@ beforeEach(async () => {
   for (const name of ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID", "PAYPAL_MODE", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM"]) delete process.env[name];
   const connection = await db();
   for (const table of ["notifications", "bookings", "orders", "blocks", "payment_events"]) await connection.query(`DELETE FROM ${table}`);
+  await connection.query("DELETE FROM automation_runs");
   await connection.query("DELETE FROM content WHERE collection='employees' AND id<>'salon'");
+  await saveContent("employees", { id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null });
   await connection.query("UPDATE inventory SET stock=10");
   await saveSettings(initialSettings);
   // Fixture de cinq heures pour tester le planning indépendamment des durées du salon.
@@ -304,7 +307,10 @@ test("le catalogue complet migre une seule fois sans modifier les rendez-vous ex
   service.variants[0].price = 6500; service.variants[0].duration = 350;
   service.deposit = { type: "fixed", value: 1000 }; service.active = false;
   await saveContent("services", service);
-  const settings = structuredClone(initialSettings); settings.schedule["1"].start = "09:00"; await saveSettings(settings);
+  // Ancienne base incohérente : préparer directement la fixture, car l’admin
+  // actuel refuse à raison des horaires qui excluent un rendez-vous existant.
+  const settings = structuredClone(initialSettings); settings.schedule["1"].start = "09:00";
+  await (await db()).query("UPDATE settings SET data=$1::jsonb WHERE id='salon'", [JSON.stringify(settings)]);
   await (await db()).query("UPDATE inventory SET stock=7 WHERE product_id='bonnet'");
   await (await db()).query("DELETE FROM migration_history WHERE id='goodhair-full-catalogue-20261007'");
   await closeDatabase();
@@ -314,10 +320,12 @@ test("le catalogue complet migre une seule fois sans modifier les rendez-vous ex
   assert.equal((await readBooking(saved.id, saved.token)).end_time, saved.end_time);
   const catalog = await publicCatalog(); assert.deepEqual(catalog.settings.schedule, initialSettings.schedule); assert.equal(catalog.products.find(product => product.id === "bonnet")!.stock, 7);
   imported.variants[0].duration = 90; imported.variants[0].price = 7000; await saveContent("services", imported);
-  settings.schedule["1"].start = "10:00"; await saveSettings(settings); await closeDatabase();
+  const untouchedDay = String((new Date(`${future()}T12:00:00Z`).getUTCDay() + 1) % 7);
+  settings.schedule["1"] = { ...initialSettings.schedule["1"] };
+  settings.schedule[untouchedDay].start = "10:00"; await saveSettings(settings); await closeDatabase();
   const updated = (await one<Service>("services", "knotless"))!;
   assert.equal(updated.variants[0].duration, 90); assert.equal(updated.variants[0].price, 7000);
-  assert.equal((await publicCatalog()).settings.schedule["1"].start, "10:00");
+  assert.equal((await publicCatalog()).settings.schedule[untouchedDay].start, "10:00");
 });
 test("l’import des photos conserve tarifs, durées, acompte et historique puis respecte les modifications admin", async () => {
   const saved = await createBooking(booking());
@@ -371,4 +379,97 @@ test("le retour PayPal redirige vers le lien privé et ne confirme pas une comma
     assert.equal(location.origin, "https://example.com"); assert.equal(location.searchParams.get("token"), saved.token); assert.equal(location.searchParams.get("payment"), "success");
   });
   assert.equal((await readBooking(saved.id, saved.token)).status, "confirmed");
+});
+
+test("les nouvelles préférences gardent les horaires d’une ancienne base sans les modifier", async () => {
+  const old = { ...initialSettings, name: "Salon personnalisé" } as Record<string, unknown>;
+  for (const key of ["bookingBufferMinutes", "bookingInstructions", "confirmationEmail", "reminderEmail", "reminderHours"]) delete old[key];
+  await (await db()).query("UPDATE settings SET data=$1::jsonb WHERE id='salon'", [JSON.stringify(old)]);
+  const settings = await getSettings();
+  assert.equal(settings.name, "Salon personnalisé"); assert.equal(settings.reminderHours, 24); assert.equal(settings.bookingBufferMinutes, 0); assert.equal(settings.bookingInstructions, "");
+  assert.deepEqual(settings.schedule, initialSettings.schedule);
+  assert.deepEqual((await (await db()).query<{ data: object }>("SELECT data FROM settings WHERE id='salon'")).rows[0].data, old);
+});
+test("la pause entre clientes est respectée pour réserver et déplacer, sans allonger la prestation", async () => {
+  const service = (await one<Service>("services", "knotless"))!;
+  service.variants[0].duration = 60; await saveContent("services", service);
+  await saveSettings({ ...initialSettings, bookingBufferMinutes: 30 });
+  const first = await createBooking(booking());
+  assert.equal(first.end_time - first.start_time, 60 * 60000);
+  const slots = await availability("knotless", "1-1", future());
+  assert.equal(slots.includes("09:30"), false); assert.equal(slots.includes("10:00"), true);
+  await assert.rejects(createBooking(booking({ time: "09:30" })), /n’est plus disponible/);
+  const second = await createBooking(booking({ time: "10:00" }));
+  await assert.rejects(moveBooking(second.id, future(), "09:30", "salon"), /n’est pas disponible/);
+  await saveContent("employees", { id: "second", name: "Autre coiffeuse", active: true, serviceIds: ["knotless"], schedule: null });
+  assert.ok((await availability("knotless", "1-1", future(), [], "second")).includes("08:30"));
+});
+test("changer horaires, affectation ou pause ne peut invalider les rendez-vous existants", async () => {
+  const service = (await one<Service>("services", "knotless"))!;
+  service.variants[0].duration = 60; await saveContent("services", service);
+  const first = await createBooking(booking()); await createBooking(booking({ time: "09:30" }));
+  const closed = structuredClone(initialSettings); closed.schedule[String(new Date(`${future()}T12:00:00Z`).getUTCDay())].closed = true;
+  await assert.rejects(saveSettings(closed), /Déplacez-le ou annulez-le/);
+  await assert.rejects(saveSettings({ ...initialSettings, bookingBufferMinutes: 15 }), /temps de pause/);
+  const member = (await one<Employee>("employees", "salon"))!;
+  await assert.rejects(saveContent("employees", { ...member, active: false }), /attribution/);
+  await assert.rejects(saveContent("employees", { ...member, serviceIds: ["microlocks"] }), /attribution/);
+  assert.deepEqual((await getSettings()).schedule, initialSettings.schedule);
+  assert.equal((await getSettings()).bookingBufferMinutes, 0);
+  assert.equal((await one<Employee>("employees", "salon"))!.active, true);
+  assert.equal((await readBooking(first.id, first.token)).status, "confirmed");
+});
+test("les consignes, solde et délai de rappel sont enregistrés puis recalculés sans doubler les messages", async () => {
+  await saveSettings({ ...initialSettings, bookingInstructions: "Apportez vos mèches choisies.", reminderHours: 48 });
+  const saved = await createBooking(booking());
+  const connection = await db();
+  let rows = (await connection.query<{ kind: string; due_at: number; body: string }>("SELECT kind,due_at,body FROM notifications WHERE booking_id=$1", [saved.id])).rows;
+  assert.equal(rows.length, 2);
+  assert.match(rows[0].body, /Apportez vos mèches choisies/); assert.match(rows[0].body, /À régler au salon/); assert.match(rows[0].body, /fin prévue/);
+  assert.equal(Number(rows.find(row => row.kind.startsWith("reminder-"))!.due_at), saved.start_time - 48 * 3600000);
+  await saveSettings({ ...initialSettings, bookingInstructions: "Nouvelle consigne validée.", reminderHours: 72 });
+  rows = (await connection.query<{ kind: string; due_at: number; body: string }>("SELECT kind,due_at,body FROM notifications WHERE booking_id=$1", [saved.id])).rows;
+  assert.equal(rows.length, 2);
+  const reminder = rows.find(row => row.kind.startsWith("reminder-"))!;
+  assert.equal(Number(reminder.due_at), saved.start_time - 72 * 3600000); assert.match(reminder.body, /Nouvelle consigne/);
+  await connection.query("UPDATE notifications SET status='sent' WHERE booking_id=$1 AND kind LIKE 'reminder-%'", [saved.id]);
+  await saveSettings({ ...initialSettings, reminderHours: 24 });
+  const sent = (await connection.query<{ status: string; due_at: number }>("SELECT status,due_at FROM notifications WHERE booking_id=$1 AND kind LIKE 'reminder-%'", [saved.id])).rows;
+  assert.equal(sent.length, 1); assert.equal(sent[0].status, "sent"); assert.equal(Number(sent[0].due_at), saved.start_time - 72 * 3600000);
+});
+test("désactiver puis réactiver les rappels ne réenvoie pas les confirmations", async () => {
+  const saved = await createBooking(booking()); const connection = await db();
+  await saveSettings({ ...initialSettings, reminderEmail: false });
+  assert.equal((await connection.query<{ status: string }>("SELECT status FROM notifications WHERE booking_id=$1 AND kind LIKE 'reminder-%'", [saved.id])).rows[0].status, "cancelled");
+  await saveSettings({ ...initialSettings, reminderEmail: true });
+  assert.equal((await connection.query<{ status: string }>("SELECT status FROM notifications WHERE booking_id=$1 AND kind LIKE 'reminder-%'", [saved.id])).rows[0].status, "pending");
+  await saveSettings({ ...initialSettings, confirmationEmail: false, reminderEmail: false });
+  assert.equal((await connection.query("SELECT id FROM notifications WHERE booking_id=$1 AND status='pending'", [saved.id])).rows.length, 0);
+  const next = await createBooking(booking({ date: addDays(future(), 1) }));
+  assert.equal((await connection.query("SELECT id FROM notifications WHERE booking_id=$1", [next.id])).rows.length, 0);
+});
+test("les messages de rendez-vous passés sont ignorés et deux envois concurrents ne doublent pas une confirmation", async () => {
+  const old = await createBooking(booking()); const connection = await db();
+  await connection.query("UPDATE bookings SET start_time=$2,end_time=$3 WHERE id=$1", [old.id, Date.now() - 2 * 3600000, Date.now() - 3600000]);
+  await connection.query("UPDATE notifications SET due_at=$2 WHERE booking_id=$1", [old.id, Date.now() - 60000]);
+  const current = await createBooking(booking({ date: addDays(future(), 1) }));
+  process.env.RESEND_API_KEY = "test-only-key"; process.env.EMAIL_FROM = "salon@example.com";
+  const originalFetch = globalThis.fetch; let sent = 0;
+  globalThis.fetch = async (_url, options) => { const body = JSON.parse(String(options?.body)); assert.match(body.text, new RegExp(current.id)); sent++; return new Response('{}', { status: 201 }); };
+  try { const results = await Promise.all([deliverNotifications(), deliverNotifications()]); assert.equal(results.reduce((sum, result) => sum + result.sent, 0), 1); assert.equal(sent, 1); }
+  finally { globalThis.fetch = originalFetch; }
+  assert.equal((await connection.query("SELECT id FROM notifications WHERE booking_id=$1 AND status='cancelled'", [old.id])).rows.length, 2);
+});
+test("la préparation distingue configuration, prix validés et tâche de rappel réellement observée", () => {
+  const service = structuredClone(initialServices.find(item => item.id === "knotless")!);
+  service.variants[0].pricingVerified = false;
+  const employees = [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }];
+  let ready = bookingReadiness([service], employees, initialSettings, null);
+  assert.equal(ready.payment.configured, false); assert.equal(ready.email.configured, false); assert.equal(ready.reminders.recent, false); assert.equal(ready.team.genericResource, true);
+  assert.ok(ready.catalog.items.some(item => item.variantId === service.variants[0].id && item.pricePending));
+  service.variants[0].pricingVerified = true;
+  ready = bookingReadiness([service], employees, initialSettings, { at: Date.now(), configured: true, sent: 1, failed: 0 });
+  assert.equal(ready.reminders.recent, true);
+  assert.equal(ready.catalog.items.some(item => item.variantId === service.variants[0].id && item.pricePending), false);
+  assert.equal(bookingReadiness([service], employees, initialSettings, { at: Date.now(), configured: false, sent: 0, failed: 0 }).reminders.recent, false);
 });

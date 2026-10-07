@@ -1,1 +1,1 @@
-export const catalogueVersion = "fashion-home-pinterest-20261007";
+export const catalogueVersion = "fashion-booking-readiness-20261007";

@@ -48,6 +48,8 @@ export const settingsSchema = z.object({
   name: z.string().min(2).max(100), address: z.string().min(5).max(200), phone: z.string().min(8).max(30),
   email: z.union([z.literal(""), z.email()]), timezone: z.literal("Europe/Paris"), pricingApproved: z.boolean(),
   bookingDays: z.number().int().min(1).max(365), advanceMinutes: z.number().int().min(0).max(10080), schedule: scheduleSchema,
+  bookingBufferMinutes: z.number().int().min(0).max(120).default(0), bookingInstructions: z.string().trim().max(2000).default(""),
+  confirmationEmail: z.boolean().default(true), reminderEmail: z.boolean().default(true), reminderHours: z.number().int().min(1).max(168).default(24),
   instagram: optionalUrl, tiktok: optionalUrl, facebook: optionalUrl,
   legalName: z.string().max(200), siret: z.string().max(30), legalEmail: z.union([z.literal(""), z.email()])
 });

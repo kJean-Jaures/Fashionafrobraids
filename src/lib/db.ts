@@ -34,6 +34,7 @@ const schema = `
  CREATE UNIQUE INDEX IF NOT EXISTS notification_once ON notifications(booking_id, kind);
  CREATE TABLE IF NOT EXISTS payment_events (id TEXT PRIMARY KEY, created_at BIGINT NOT NULL);
  CREATE TABLE IF NOT EXISTS migration_history (id TEXT PRIMARY KEY);
+ CREATE TABLE IF NOT EXISTS automation_runs (id TEXT PRIMARY KEY, ran_at BIGINT NOT NULL, data JSONB NOT NULL);
 `;
 async function initialise(connection: Connection) {
   for (const statement of schema.split(";").filter(part => part.trim())) await connection.query(statement);
@@ -177,7 +178,7 @@ export async function one<T>(collection: Collection, id: string, connection?: Co
   return (await (connection || await db()).query<{ data: T }>("SELECT data FROM content WHERE collection=$1 AND id=$2", [collection, id])).rows[0]?.data;
 }
 export async function getSettings(connection?: Connection): Promise<Settings> {
-  return (await (connection || await db()).query<{ data: Settings }>("SELECT data FROM settings WHERE id='salon'")).rows[0].data;
+  return { ...initialSettings, ...(await (connection || await db()).query<{ data: Settings }>("SELECT data FROM settings WHERE id='salon'")).rows[0].data };
 }
 export async function publicCatalog() {
   const connection = await db();

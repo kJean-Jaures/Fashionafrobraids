@@ -181,3 +181,47 @@ test("le logo original, les prix de l’affiche et les 10 € sont visibles sur 
   await expect(page.locator(".price-service-photo").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("la préparation du salon enregistre les consignes et valide un tarif par variante sur mobile", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Préparer les réservations", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Acompte de 10 €", exact: true })).toBeVisible();
+  await expect(page.getByText("Envoi à activer", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Un compte personnel seul ne suffit pas/)).toBeVisible();
+  await page.getByLabel("Rappel avant le rendez-vous (heures)").fill("48");
+  await page.getByLabel("Pause entre deux clientes (minutes)").fill("15");
+  await page.getByLabel("Consignes avant le rendez-vous").fill("Consigne de test : apportez vos mèches.");
+  await page.getByRole("button", { name: "Enregistrer les consignes et rappels" }).click();
+  await expect.poll(async () => (await (await request.get("/api/catalog")).json()).settings.reminderHours).toBe(48);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByLabel("Afficher les points à vérifier").selectOption("prices");
+  const card = page.locator(".preparation-review-list article").filter({ has: page.getByRole("heading", { name: "Tissage ouvert", exact: true }) }).first();
+  await card.getByRole("button", { name: "Vérifier Tissage ouvert", exact: true }).click();
+  await page.getByLabel("Tarif validé variante 1", { exact: true }).check();
+  await page.getByRole("button", { name: "Enregistrer prestation" }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect.poll(async () => (await (await request.get("/api/catalog")).json()).services.find((service: {id:string}) => service.id === "tissage-ouvert").variants[0].pricingVerified).toBe(true);
+  await page.goto("/reservation?prestation=knotless&variante=1-1");
+  await page.getByRole("button", { name: "Choisir mon créneau" }).click();
+  await expect(page.locator(".booking-instructions")).toContainText("Consigne de test : apportez vos mèches.");
+  const catalog = await (await request.get("/api/catalog")).json();
+  expect(catalog.settings.bookingBufferMinutes).toBe(15); expect(catalog.settings.schedule["1"]).toEqual({closed:false,start:"08:30",end:"20:00"});
+  // Restaurer les réglages de cette base temporaire pour les autres parcours.
+  const login = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
+  const headers = { Cookie: login.headers()["set-cookie"].split(";")[0] };
+  expect((await request.put("/api/admin/settings", { headers, data: { ...catalog.settings, reminderHours:24, bookingBufferMinutes:0, bookingInstructions:"" } })).status()).toBe(200);
+});
+
+test("la tâche de rappel exige son secret et son dernier passage apparaît dans la préparation", async ({ request }) => {
+  expect((await request.get("/api/cron/reminders")).status()).toBe(401);
+  expect((await request.get("/api/cron/reminders", { headers: { Authorization: "Bearer wrong-test-secret" } })).status()).toBe(401);
+  const result = await request.get("/api/cron/reminders", { headers: { Authorization: "Bearer test-only-cron-secret-32-characters" } });
+  expect(result.status()).toBe(200); expect(await result.json()).toEqual({sent:0,failed:0,configured:false});
+  const login = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
+  const headers = { Cookie: login.headers()["set-cookie"].split(";")[0] };
+  const data = await (await request.get("/api/admin", { headers })).json();
+  expect(data.readiness.reminders.secretConfigured).toBe(true);
+  expect(data.readiness.reminders.lastRun.at).toBeGreaterThan(Date.now()-60000);
+  expect(data.readiness.reminders.recent).toBe(false);
+});

@@ -20,6 +20,11 @@ export function localTimeToEpoch(date: string, hour: number, minute = 0) {
   return epoch;
 }
 export function timestamp(date: string, time: string) { const [h, m] = time.split(":").map(Number); return localTimeToEpoch(date, h, m); }
+export function scheduleContainsBooking(schedule: WeeklySchedule, start: number, end: number) {
+  const date = parisDate(new Date(start));
+  const day = schedule[String(new Date(`${date}T12:00:00Z`).getUTCDay())];
+  return Boolean(day && !day.closed && start >= timestamp(date, day.start) && end <= timestamp(date, day.end));
+}
 const minutes = (time: string) => { const [hour, minute] = time.split(":").map(Number); return hour * 60 + minute; };
 export function possibleSlots(date: string, duration: number, now = Date.now(), settings: Settings = initialSettings, employeeSchedule: WeeklySchedule | null = null) {
   if (!validDate(date)) return [];

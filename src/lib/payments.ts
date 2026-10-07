@@ -1,5 +1,5 @@
 import { DomainError, hydrateBooking, readBooking, type Booking } from "./domain";
-import { transaction } from "./db";
+import { transaction, getSettings } from "./db";
 import { queueBookingEmails } from "./notifications";
 import { paypalConfigured } from "./paypal-config";
 
@@ -75,7 +75,8 @@ async function completePayment(orderId: string, capture: Capture, eventId: strin
     const booking = (await connection.query<Booking>("SELECT * FROM bookings WHERE data->>'paypalOrderId'=$1 FOR UPDATE", [orderId])).rows[0];
     if (booking && !booking.data.depositPaid) {
       if (amount !== booking.data.deposit || amount <= 0) throw new DomainError("Le montant PayPal ne correspond pas à l’acompte attendu.");
-      const conflict = (await connection.query("SELECT id FROM bookings WHERE id<>$1 AND employee_id=$2 AND start_time<$4 AND end_time>$3 AND (status='confirmed' OR (status='pending_payment' AND expires_at>$5)) LIMIT 1", [booking.id, booking.employee_id, booking.start_time, booking.end_time, Date.now()])).rows.length;
+      const buffer = (await getSettings(connection)).bookingBufferMinutes * 60000;
+      const conflict = (await connection.query("SELECT id FROM bookings WHERE id<>$1 AND employee_id=$2 AND start_time<$4 AND end_time>$3 AND (status='confirmed' OR (status='pending_payment' AND expires_at>$5)) LIMIT 1", [booking.id, booking.employee_id, Number(booking.start_time) - buffer, Number(booking.end_time) + buffer, Date.now()])).rows.length;
       const block = (await connection.query("SELECT id FROM blocks WHERE (employee_id IS NULL OR employee_id=$1) AND start_time<$3 AND end_time>$2 LIMIT 1", [booking.employee_id, booking.start_time, booking.end_time])).rows.length;
       const data = { ...booking.data, depositPaid: true, paypalCaptureId: capture.id };
       const status = !conflict && !block && booking.status !== "cancelled" ? "confirmed" : "cancelled";

@@ -34,8 +34,9 @@ export function selection(service: Service, variantId: string, optionIds: string
   const deposit = service.deposit.type === "none" ? 0 : service.deposit.type === "percent" ? Math.round(price * service.deposit.value / 100) : Math.min(price, service.deposit.value);
   return { variant, options, price, duration, deposit };
 }
-async function busy(connection: Connection, staff: string, start: number, end: number, exclude = "") {
-  const overlapping = await connection.query("SELECT id FROM bookings WHERE employee_id=$1 AND id<>$5 AND start_time<$3 AND end_time>$2 AND (status='confirmed' OR (status='pending_payment' AND expires_at>$4)) LIMIT 1", [staff, start, end, Date.now(), exclude]);
+async function busy(connection: Connection, staff: string, start: number, end: number, exclude = "", bufferMinutes = 0) {
+  const buffer = bufferMinutes * 60000;
+  const overlapping = await connection.query("SELECT id FROM bookings WHERE employee_id=$1 AND id<>$5 AND start_time<$3 AND end_time>$2 AND (status='confirmed' OR (status='pending_payment' AND expires_at>$4)) LIMIT 1", [staff, start - buffer, end + buffer, Date.now(), exclude]);
   if (overlapping.rows.length) return true;
   return (await connection.query("SELECT id FROM blocks WHERE (employee_id IS NULL OR employee_id=$1) AND start_time<$3 AND end_time>$2 LIMIT 1", [staff, start, end])).rows.length > 0;
 }
@@ -50,7 +51,7 @@ export async function availability(serviceId: string, variantId: string, date: s
   const slots = new Set<string>();
   for (const employee of staff) {
     for (const slot of possibleSlots(date, selected.duration, Date.now(), settings, employee.schedule)) {
-      if (!await busy(connection, employee.id, slot.start, slot.end)) slots.add(slot.time);
+      if (!await busy(connection, employee.id, slot.start, slot.end, "", settings.bookingBufferMinutes)) slots.add(slot.time);
     }
   }
   return [...slots].sort();
@@ -69,7 +70,7 @@ export async function createBooking(input: BookingInput) {
     const staff = (await all<Employee>("employees", connection)).filter(item => item.active && (!item.serviceIds.length || item.serviceIds.includes(service.id)) && (input.employeeId === "any" || input.employeeId === item.id));
     for (const employee of staff) {
       const slot = possibleSlots(input.date, selected.duration, Date.now(), settings, employee.schedule).find(slot => slot.time === input.time);
-      if (!slot || await busy(connection, employee.id, slot.start, slot.end)) continue;
+      if (!slot || await busy(connection, employee.id, slot.start, slot.end, "", settings.bookingBufferMinutes)) continue;
       const data: BookingData = { name: input.name, email: input.email, phone: input.phone, note: input.note, serviceId: service.id, service: service.name, variantId: selected.variant.id, size: selected.variant.size, length: selected.variant.length, options: selected.options.map(option => option.label), price: selected.price, duration: selected.duration, deposit: selected.deposit, depositPaid: false, employee: employee.name };
       const status = selected.deposit ? "pending_payment" : "confirmed";
       // Le créneau est retenu pendant le paiement, puis libéré sans paiement vérifié.
@@ -112,8 +113,9 @@ export async function moveBooking(id: string, date: string, time: string, employ
     if (!row || row.status !== "confirmed") throw new DomainError("Ce rendez-vous ne peut pas être déplacé.", 409);
     const employee = await one<Employee>("employees", employeeId, connection);
     if (!employee?.active || (employee.serviceIds.length && !employee.serviceIds.includes(row.data.serviceId))) throw new DomainError("Cette coiffeuse ne réalise pas cette prestation.");
-    const slot = possibleSlots(date, row.data.duration, Date.now(), await getSettings(connection), employee.schedule).find(slot => slot.time === time);
-    if (!slot || await busy(connection, employee.id, slot.start, slot.end, id)) throw new DomainError("Ce créneau n’est pas disponible.", 409);
+    const settings = await getSettings(connection);
+    const slot = possibleSlots(date, row.data.duration, Date.now(), settings, employee.schedule).find(slot => slot.time === time);
+    if (!slot || await busy(connection, employee.id, slot.start, slot.end, id, settings.bookingBufferMinutes)) throw new DomainError("Ce créneau n’est pas disponible.", 409);
     await connection.query("UPDATE bookings SET employee_id=$2,start_time=$3,end_time=$4,data=$5::jsonb WHERE id=$1", [id, employee.id, slot.start, slot.end, JSON.stringify({ ...row.data, employee: employee.name })]);
     await connection.query("DELETE FROM notifications WHERE booking_id=$1 AND status<>'sent'", [id]);
     await queueBookingEmails(connection, { ...hydrateBooking(row), employee_id: employee.id, start_time: slot.start, end_time: slot.end, data: { ...row.data, employee: employee.name } });
