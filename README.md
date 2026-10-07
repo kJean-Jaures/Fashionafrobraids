@@ -4,7 +4,7 @@ Site responsive et application web installable (PWA), créés à partir des cons
 
 Aperçus de la version développée : [ordinateur](docs/apercu-ordinateur.png) · [téléphone](docs/apercu-mobile.png).
 
-Pour obtenir un lien de démonstration interactif, suivre le [guide Render](docs/apercu-en-ligne.md). Le fichier `render.yaml` prépare un aperçu séparé, avec un bandeau de démonstration et un mot de passe administrateur généré par l'hébergeur. La création du compte et le déploiement public restent à effectuer.
+Pour voir le site sur votre ordinateur sans hébergeur, suivre le [guide local](docs/apercu-local.md). Pour un lien public interactif, suivre le [guide Render](docs/apercu-en-ligne.md). Le fichier `render.yaml` prépare un aperçu avec un bandeau de démonstration et un mot de passe administrateur généré par l'hébergeur. Le premier déploiement Render a échoué par manque de mémoire ; la correction est testée sous 512 Mio et le déploiement public doit être relancé.
 
 ## Démarrage
 
@@ -91,7 +91,7 @@ Les tests métier et navigateur utilisent des bases temporaires distinctes, sans
 
 Les contrôles couvrent le prix des variantes et options, les durées, les collisions, les coiffeuses parallèles, les horaires, pauses, annulations, déplacements, stocks, commandes, liens privés, changement d’heure, notifications, webhooks Stripe simulés, parcours mobile, administration, import de photos, contact, manifest et contrôles automatisés WCAG AA de l’accueil. Un contrôle automatique ne remplace pas une vérification manuelle exhaustive d’accessibilité.
 
-Dans cet environnement : **19 tests métier et 7 tests navigateur réussis**, vérification TypeScript et compilation de production réussies. Un contrôle complémentaire sur téléphone n’a détecté aucun débordement ni violation automatisée WCAG AA sur l’accueil, le catalogue, la fiche Knotless, la réservation, la boutique et le contact. Les intégrations PostgreSQL externe, Resend et paiement Stripe réel restent à vérifier avec les comptes du salon.
+Dans cet environnement : **20 tests métier et 7 tests navigateur réussis**, vérification TypeScript et compilation de production réussies. Les sept parcours navigateur ont aussi réussi en mode démonstration dans un conteneur limité à **512 Mio sans swap**, avec un pic d'environ **236 Mio**. Un contrôle complémentaire sur téléphone n’a détecté aucun débordement ni violation automatisée WCAG AA sur l’accueil, le catalogue, la fiche Knotless, la réservation, la boutique et le contact. Les intégrations PostgreSQL externe, Resend et paiement Stripe réel restent à vérifier avec les comptes du salon.
 
 ## Mise en ligne
 

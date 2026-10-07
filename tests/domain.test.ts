@@ -33,6 +33,15 @@ after(async () => { await closeDatabase(); await rm(directory, { recursive: true
 test("le catalogue charge les catégories et les quatre produits fournis", async () => {
   const catalog = await publicCatalog(); assert.ok(catalog.services.length > 60); assert.equal(catalog.products.length, 4); assert.equal(catalog.settings.address, initialSettings.address); assert.equal(catalog.settings.pricingApproved, false);
 });
+test("rouvrir la base conserve les réservations et le stock modifié", async () => {
+  const saved = await createBooking(booking());
+  await (await db()).query("UPDATE inventory SET stock=7 WHERE product_id='bonnet'");
+  await closeDatabase();
+  const restored = await readBooking(saved.id, saved.token);
+  assert.equal(restored.start_time, saved.start_time);
+  assert.equal(restored.status, saved.status);
+  assert.equal((await publicCatalog()).products.find(product => product.id === "bonnet")!.stock, 7);
+});
 test("variante et options recalculent prix et durée côté serveur", async () => {
   const service = (await one<Service>("services", "knotless"))!;
   const picked = selection(service, "1-1", ["color", "beads"]);

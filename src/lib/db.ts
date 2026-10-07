@@ -1,7 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
 import { Pool, type PoolClient } from "pg";
-import { mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { localPostgresOptions } from "./local-postgres-options.mjs";
 import { initialServices, initialProducts, initialSettings, initialGallery, initialReviews, type Service, type Product, type Settings, type Employee, type GalleryPhoto, type Review } from "./catalog";
 
 export type Collection = "services" | "products" | "employees" | "gallery" | "reviews";
@@ -54,7 +55,13 @@ function runtime(): Runtime {
   } else {
     const path = process.env.DATA_DIR || resolve(process.cwd(), "data/postgres");
     mkdirSync(path, { recursive: true });
-    const local = new PGlite(path);
+    const template = resolve(process.cwd(), ".next/local-postgres");
+    // Only bootstrap new local databases. Reopening a database must preserve
+    // the catalogue, appointments and edits made in the administration.
+    if (!existsSync(resolve(path, "PG_VERSION")) && existsSync(resolve(template, "PG_VERSION"))) {
+      cpSync(template, path, { recursive: true, errorOnExist: true, force: false });
+    }
+    const local = new PGlite(path, localPostgresOptions);
     globalDB.fabDB = { local, ready: initialise(local as Connection) };
   }
   return globalDB.fabDB;

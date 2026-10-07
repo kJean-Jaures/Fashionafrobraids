@@ -24,6 +24,20 @@ Les stocks initiaux restent à zéro. Pour tester une commande, ouvrir l'adminis
 
 La connexion réelle à Render et l'accès par son adresse publique nécessitent le compte du propriétaire et restent à vérifier après le déploiement. Le code et les commandes ont été vérifiés dans l'environnement de développement ; cela ne prouve pas qu'un service Render existe déjà.
 
+## Relancer le déploiement après l'erreur de mémoire
+
+Les logs du premier déploiement montrent une compilation réussie, puis **Out of memory (used over 512Mi)** après le démarrage. L'erreur a été reproduite dans un conteneur Node.js 24.19.0 limité à 512 Mio sans swap.
+
+La compilation prépare maintenant une base PostgreSQL locale vide dans `.next/local-postgres`. Au premier accès, le serveur la copie dans `DATA_DIR` ; une base déjà créée est conservée. Les buffers PostgreSQL sont réduits. En mode démonstration sans `DATABASE_URL`, `npm start` utilise la compilation WASM de base pour éviter les pointes de mémoire du compilateur d'optimisation. La connexion PostgreSQL externe garde les réglages Node habituels.
+
+Les **20 tests métier** et **7 tests navigateur** ont réussi. Les sept parcours navigateur ont tourné sur la version de production dans le conteneur limité à **512 Mio**, avec les variables de démonstration Render. Le pic mesuré après ces parcours était d'environ **236 Mio**, sans arrêt pour manque de mémoire. Cela valide ce scénario de test ; le déploiement public Render reste à vérifier.
+
+Dans Render, ouvrir **fashion-afro-braids-demo**, puis choisir **Manual Deploy → Deploy latest commit**. Garder la branche `codex/fashion-afro-braids-preview` et les variables du Blueprint, notamment `DEMO_MODE=true`. Les commandes de compilation et de démarrage restent celles de `render.yaml`.
+
+Attendre l'état **Live**, puis ouvrir l'adresse HTTPS affichée par Render. Si le service n'apparaît pas, revenir au Blueprint et utiliser **Manual sync** pour reprendre sa création.
+
+Pour voir le site sans hébergeur, suivre [le lancement sur votre ordinateur](apercu-local.md).
+
 ## Passer à une utilisation réelle
 
 Avant l'ouverture, configurer une base PostgreSQL et le stockage persistant des photos, désactiver `DEMO_MODE`, puis valider les tarifs, durées, disponibilités et documents légaux. Voir le README pour les e-mails, rappels et acomptes. La configuration de démonstration ne doit pas servir d'agenda commercial.
