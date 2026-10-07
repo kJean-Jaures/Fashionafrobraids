@@ -18,7 +18,7 @@ Les modifications de développement apparaissent dans le navigateur. Pour arrêt
 
 Le mot de passe de gestion est créé dans le fichier privé `.env.local`, à la ligne `ADMIN_PASSWORD`. Il permet d'ouvrir `/admin`. Les données restent dans `data/postgres` et les photos ajoutées dans `data/uploads`. Ces fichiers sont exclus de Git.
 
-Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend ou Stripe, aucun e-mail réel ni paiement d'acompte n'est effectué.
+Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend ou PayPal, aucun e-mail réel ni paiement d'acompte n'est effectué.
 
 ## GitHub et lien public
 

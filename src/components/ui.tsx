@@ -17,9 +17,10 @@ export function Modal({ open, onClose, title, children, className = "" }: { open
   </dialog>;
 }
 export function SubmitButton({ pending, children, className = "button primary", ...props }: { pending?: boolean; children: ReactNode; className?: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button className={className} disabled={pending || props.disabled} {...props}>{pending ? <LoaderCircle className="spin" size={18}/> : null}{children}{!pending && <ArrowUpRight size={17}/>}</button>;
+  return <button className={className} {...props} disabled={pending || props.disabled}>{pending ? <LoaderCircle className="spin" size={18}/> : null}{children}{!pending && <ArrowUpRight size={17}/>}</button>;
 }
 export function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) { return <label className={`field ${className}`}><span>{label}</span>{children}</label>; }
+export function ChoiceGroup({ label, children }: { label: string; children: ReactNode }) { return <fieldset className="field choice-field"><legend>{label}</legend>{children}</fieldset>; }
 export function FormError({ error }: { error: string }) { return error ? <p className="form-error" role="alert">{error}</p> : null; }
 export async function api<T = unknown>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...options, headers: { ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...options?.headers } });

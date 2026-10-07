@@ -1,5 +1,5 @@
-const CACHE = "fab-static-v2";
-const ASSETS = ["/offline.html", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "fab-static-v3";
+const ASSETS = ["/offline.html", "/icon.svg", "/icons/logo-maskable.svg", "/images/logo-fashion-afro-braids.jpg"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))); self.skipWaiting(); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("fab-static-") && key !== CACHE).map(key => caches.delete(key))))); self.clients.claim(); });
 self.addEventListener("fetch", event => {

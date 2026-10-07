@@ -18,7 +18,7 @@ Après le démarrage, ouvrir l'adresse HTTPS attribuée par Render. Elle permet 
 
 ## Limites de la démonstration
 
-Les données et photos ajoutées dans cet aperçu peuvent disparaître lors d'un redémarrage ou d'un nouveau déploiement. Utiliser des informations de test. Les réservations saisies dans cet aperçu ne sont pas des rendez-vous réels du salon. Aucun compte Stripe ou e-mail n'est connecté.
+Les données et photos ajoutées dans cet aperçu peuvent disparaître lors d'un redémarrage ou d'un nouveau déploiement. Utiliser des informations de test. Les réservations saisies dans cet aperçu ne sont pas des rendez-vous réels du salon. Aucun compte PayPal ou e-mail n'est connecté.
 
 Les stocks initiaux restent à zéro. Pour tester une commande, ouvrir l'administration et renseigner un stock de test dans Produits & stocks. Cela n'indique pas le stock réel du salon.
 

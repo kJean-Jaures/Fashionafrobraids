@@ -1,9 +1,10 @@
-export type Variant = { id: string; size: string; length: string; price: number; duration: number };
-export type Extra = { id: string; label: string; price: number; duration: number };
+import { posterServices } from "./poster-catalog";
+export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string };
+export type Extra = { id: string; label: string; price: number; duration: number; exclusiveGroup?: string };
 export type Deposit = { type: "none" | "percent" | "fixed"; value: number };
 export type Service = {
   id: string; name: string; category: string; description: string; image: string;
-  active: boolean; quoteOnly: boolean; hairIncluded: boolean; estimatedDuration: boolean;
+  active: boolean; quoteOnly: boolean; hairIncluded: boolean; estimatedDuration: boolean; pricingVerified?: boolean;
   variants: Variant[]; options: Extra[]; deposit: Deposit;
 };
 export type Product = { id: string; name: string; category: string; description: string; price: number; stock: number; image: string; size: string; active: boolean };
@@ -33,7 +34,7 @@ const base = (id: string, name: string, category: string, price: number, duratio
   id, name, category, description, image: category === "Perruques" || category === "Tissages" ? "/images/gallery.webp#right" : category === "Cornrows" || category === "Hommes" || category === "Enfants" ? "/images/gallery.webp#left" : "/images/hero.webp",
   active: true, quoteOnly: false, hairIncluded: false, estimatedDuration: true,
   variants: [{ id: "standard", size: "Standard", length: "Standard", price: price * 100, duration }],
-  options: [], deposit: { type: "none", value: 0 }
+  options: [], deposit: { type: "fixed", value: 1000 }
 });
 function braid(id: string, name: string, category: string) {
   const service = base(id, name, category, 60, 210, "Une coiffure protectrice réalisée avec précision, adaptée à votre style et à votre texture de cheveux.");
@@ -74,13 +75,14 @@ const descriptions: Record<string, string> = {
   Coupes: "Une coupe adaptée à vos envies et à votre texture de cheveux.",
   "Lissage & coloration": "Une prestation personnalisée après échange sur vos cheveux et vos attentes."
 };
-export const initialServices: Service[] = [braid("knotless", "Knotless Braids", "Knotless"), braid("box-braids", "Box Braids", "Box Braids"), ...groups.flatMap(([category, items]) => items.map(([id, name, price, duration]) => {
+const provisionalServices: Service[] = [braid("knotless", "Knotless Braids", "Knotless"), braid("box-braids", "Box Braids", "Box Braids"), ...groups.flatMap(([category, items]) => items.map(([id, name, price, duration]) => {
   const item = base(id, name, category, price, duration, descriptions[category]);
   item.quoteOnly = price === 0;
   if (["Boho", "Twists", "Extensions", "Fulani"].includes(category)) item.options = extras;
   if (category === "Enfants") item.variants = ["0–5 ans", "6–12 ans", "13–17 ans"].map((size, index) => ({ ...item.variants[0], id: String(index), size }));
   return item;
 }))];
+export const initialServices: Service[] = [...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))];
 export const initialProducts: Product[] = [
   { id: "bonnet", name: "Bonnet en satin", category: "Accessoires", description: "Un essentiel tout doux pour protéger votre coiffure pendant la nuit.", price: 1000, stock: 0, image: "/images/bonnet-current.webp", size: "Modèles et disponibilité à confirmer", active: true },
   { id: "perruque", name: "Perruque", category: "Perruques", description: "Choisissez votre nouvelle allure. Modèles et caractéristiques à préciser avec le salon.", price: 10000, stock: 0, image: "/images/wig-current.webp", size: "Modèle à préciser", active: true },

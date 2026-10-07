@@ -3,6 +3,8 @@ import { Pool, type PoolClient } from "pg";
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { localPostgresOptions } from "./local-postgres-options.mjs";
+import { posterServices } from "./poster-catalog";
+import { paypalConfigured } from "./paypal-config";
 import { initialServices, initialProducts, initialSettings, initialGallery, initialReviews, type Service, type Product, type Settings, type Employee, type GalleryPhoto, type Review } from "./catalog";
 
 export type Collection = "services" | "products" | "employees" | "gallery" | "reviews";
@@ -38,6 +40,7 @@ async function initialise(connection: Connection) {
       for (const product of initialProducts) await connection.query("UPDATE content SET data=jsonb_set(data,'{image}',$2::jsonb) WHERE collection='products' AND id=$1 AND data->>'image'=$3", [product.id, JSON.stringify(product.image), legacyImages[product.id]]);
       await connection.query("INSERT INTO migration_history(id) VALUES('site-import-20261007') ON CONFLICT DO NOTHING");
     }
+    await migratePoster(connection);
     return;
   }
   for (const [collection, values] of Object.entries({ services: initialServices, products: initialProducts, gallery: initialGallery, reviews: initialReviews, employees: [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }] })) {
@@ -46,12 +49,33 @@ async function initialise(connection: Connection) {
   for (const product of initialProducts) await connection.query("INSERT INTO inventory(product_id,stock) VALUES($1,$2) ON CONFLICT DO NOTHING", [product.id, product.stock]);
   await connection.query("INSERT INTO settings(id,data) VALUES('salon',$1::jsonb) ON CONFLICT DO NOTHING", [JSON.stringify(initialSettings)]);
   await connection.query("INSERT INTO migration_history(id) VALUES('site-import-20261007') ON CONFLICT DO NOTHING");
+  await migratePoster(connection);
+}
+async function migratePoster(connection: Connection) {
+  await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
+  if ((await connection.query("SELECT id FROM migration_history WHERE id='poster-paypal-deposit-20261007'")).rows.length) return;
+  // Une seule importation : les modifications ultérieures du salon restent intactes.
+  // Les rendez-vous existants conservent leurs propres prix et durées historiques.
+  for (const poster of posterServices) {
+    const current = (await connection.query<{ data: Service }>("SELECT data FROM content WHERE collection='services' AND id=$1", [poster.id])).rows[0]?.data;
+    const updated = { ...current, ...poster, active: current?.active ?? poster.active,
+      variants: poster.variants.map(variant => ({ ...variant, duration: current?.variants.find(old => old.size === variant.size && old.length === variant.length)?.duration ?? variant.duration })) };
+    await connection.query("INSERT INTO content(collection,id,data) VALUES('services',$1,$2::jsonb) ON CONFLICT(collection,id) DO UPDATE SET data=EXCLUDED.data", [poster.id, JSON.stringify(updated)]);
+  }
+  await connection.query("UPDATE content SET data=jsonb_set(data,'{deposit}','{\"type\":\"fixed\",\"value\":1000}'::jsonb) WHERE collection='services'");
+  await connection.query("INSERT INTO migration_history(id) VALUES('poster-paypal-deposit-20261007')");
 }
 function runtime(): Runtime {
   if (globalDB.fabDB) return globalDB.fabDB;
   if (process.env.DATABASE_URL) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });
-    globalDB.fabDB = { pool, ready: initialise(pool) };
+    const ready = (async () => {
+      const client = await pool.connect();
+      try { await client.query("BEGIN"); await initialise(client); await client.query("COMMIT"); }
+      catch (error) { await client.query("ROLLBACK"); throw error; }
+      finally { client.release(); }
+    })();
+    globalDB.fabDB = { pool, ready };
   } else {
     const path = process.env.DATA_DIR || resolve(process.cwd(), "data/postgres");
     mkdirSync(path, { recursive: true });
@@ -62,7 +86,7 @@ function runtime(): Runtime {
       cpSync(template, path, { recursive: true, errorOnExist: true, force: false });
     }
     const local = new PGlite(path, localPostgresOptions);
-    globalDB.fabDB = { local, ready: initialise(local as Connection) };
+    globalDB.fabDB = { local, ready: local.transaction(async connection => initialise(connection as Connection)) };
   }
   return globalDB.fabDB;
 }
@@ -91,7 +115,7 @@ export async function publicCatalog() {
   const [services, products, employees, gallery, reviews, settings, stocks] = await Promise.all([
     all<Service>("services"), all<Product>("products"), all<Employee>("employees"), all<GalleryPhoto>("gallery"), all<Review>("reviews"), getSettings(), connection.query<{ product_id: string; stock: number }>("SELECT product_id,stock FROM inventory")
   ]);
-  return { services: services.filter(item => item.active), products: products.filter(item => item.active).map(item => ({ ...item, stock: stocks.rows.find(row => row.product_id === item.id)?.stock || 0 })), employees: employees.filter(item => item.active).map(item => ({ id: item.id, name: item.name })), gallery: gallery.filter(item => item.active), reviews: reviews.filter(item => item.active), settings };
+  return { services: services.filter(item => item.active).sort((a, b) => Number(Boolean(b.pricingVerified)) - Number(Boolean(a.pricingVerified))), products: products.filter(item => item.active).map(item => ({ ...item, stock: stocks.rows.find(row => row.product_id === item.id)?.stock || 0 })), employees: employees.filter(item => item.active).map(item => ({ id: item.id, name: item.name })), gallery: gallery.filter(item => item.active), reviews: reviews.filter(item => item.active), settings, bookingPaymentsEnabled: paypalConfigured() };
 }
 export type Catalog = Awaited<ReturnType<typeof publicCatalog>>;
 export async function closeDatabase() {

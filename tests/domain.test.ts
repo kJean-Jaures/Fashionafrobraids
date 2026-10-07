@@ -11,22 +11,22 @@ import { saveContent, removeContent, saveSettings } from "../src/lib/admin";
 import { addDays, parisDate, timestamp, localTimeToEpoch } from "../src/lib/time";
 import { bookingSchema, orderSchema } from "../src/lib/validation";
 import { deliverNotifications } from "../src/lib/notifications";
-import Stripe from "stripe";
-import { handlePaymentWebhook } from "../src/lib/payments";
+import { handlePaymentWebhook, checkoutSession, captureBookingPayment } from "../src/lib/payments";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
 const booking = (patch = {}) => bookingSchema.parse({ serviceId: "knotless", variantId: "1-1", date: future(), time: "08:30", name: "Cliente Test", email: "test@example.com", phone: "0612345678", consent: true, ...patch });
 const order = (items = [{ productId: "bonnet", quantity: 1 }], patch = {}) => orderSchema.parse({ name: "Cliente Test", email: "test@example.com", phone: "0612345678", consent: true, requestId: randomUUID(), items, ...patch });
-before(async () => { directory = await mkdtemp(join(tmpdir(), "fab-domain-tests-")); process.env.DATA_DIR = directory; delete process.env.DATABASE_URL; delete process.env.RESEND_API_KEY; delete process.env.STRIPE_SECRET_KEY; await db(); });
+before(async () => { directory = await mkdtemp(join(tmpdir(), "fab-domain-tests-")); process.env.DATA_DIR = directory; delete process.env.DATABASE_URL; delete process.env.RESEND_API_KEY; delete process.env.PAYPAL_CLIENT_SECRET; await db(); });
 beforeEach(async () => {
-  for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM"]) delete process.env[name];
+  for (const name of ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID", "PAYPAL_MODE", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM"]) delete process.env[name];
   const connection = await db();
   for (const table of ["notifications", "bookings", "orders", "blocks", "payment_events"]) await connection.query(`DELETE FROM ${table}`);
   await connection.query("DELETE FROM content WHERE collection='employees' AND id<>'salon'");
   await connection.query("UPDATE inventory SET stock=10");
   await saveSettings(initialSettings);
-  await saveContent("services", initialServices.find(item => item.id === "knotless"));
+  // Les tests de planning isolent le paiement ; la règle publique est testée séparément.
+  await saveContent("services", { ...initialServices.find(item => item.id === "knotless")!, deposit: { type: "none", value: 0 } });
 });
 after(async () => { await closeDatabase(); await rm(directory, { recursive: true, force: true }); });
 
@@ -44,9 +44,9 @@ test("rouvrir la base conserve les réservations et le stock modifié", async ()
 });
 test("variante et options recalculent prix et durée côté serveur", async () => {
   const service = (await one<Service>("services", "knotless"))!;
-  const picked = selection(service, "1-1", ["color", "beads"]);
-  assert.equal(picked.price, 9500); assert.equal(picked.duration, 315);
-  assert.throws(() => selection(service, "1-1", ["color", "color"])); assert.throws(() => selection(service, "1-1", ["invented"]));
+  const picked = selection(service, "1-1", ["curls", "beads"]);
+  assert.equal(picked.price, 7000); assert.equal(picked.duration, 345);
+  assert.throws(() => selection(service, "1-1", ["curls", "curls"])); assert.throws(() => selection(service, "1-1", ["invented"]));
 });
 test("deux réservations concurrentes ne peuvent pas occuper la même coiffeuse", async () => {
   const result = await Promise.allSettled([createBooking(booking()), createBooking(booking())]);
@@ -100,7 +100,7 @@ test("une rupture sur le second produit annule toute la réduction de stock", as
 test("un identifiant de commande répété ne décrémente pas deux fois le stock", async () => {
   const input = order(); await createOrder(input); await assert.rejects(createOrder(input)); assert.equal((await publicCatalog()).products.find(p => p.id === "bonnet")!.stock, 9);
 });
-test("un acompte sans connexion Stripe bloque proprement la réservation", async () => {
+test("un acompte sans connexion PayPal bloque proprement la réservation", async () => {
   const service = (await one<Service>("services", "knotless"))!; service.deposit = { type: "percent", value: 25 }; await saveContent("services", service);
   await assert.rejects(createBooking(booking()), /n’est pas encore activé/); assert.ok((await availability("knotless", "1-1", future())).includes("08:30"));
 });
@@ -120,26 +120,125 @@ test("l’envoi e-mail suit les réponses du fournisseur et ne renvoie pas la co
   finally { globalThis.fetch = originalFetch; }
   assert.equal((await (await db()).query("SELECT id FROM notifications WHERE booking_id=$1 AND status='sent'", [saved.id])).rows.length, 1);
 });
+function paypalTestConfig() {
+  process.env.PAYPAL_CLIENT_ID = "test-only-client-id"; process.env.PAYPAL_CLIENT_SECRET = "test-only-client-secret";
+  process.env.PAYPAL_WEBHOOK_ID = "test-only-webhook-id"; process.env.PAYPAL_MODE = "sandbox"; process.env.PUBLIC_SITE_URL = "https://example.com";
+}
 async function pendingPayment() {
-  process.env.STRIPE_SECRET_KEY = "sk_test_local_not_a_real_key"; process.env.STRIPE_WEBHOOK_SECRET = "whsec_local_not_a_real_secret"; process.env.PUBLIC_SITE_URL = "https://example.com";
-  const service = (await one<Service>("services", "knotless"))!; service.deposit = { type: "percent", value: 25 }; await saveContent("services", service); return createBooking(booking());
+  paypalTestConfig();
+  const service = (await one<Service>("services", "knotless"))!; service.deposit = { type: "fixed", value: 1000 }; await saveContent("services", service);
+  const saved = await createBooking(booking());
+  await (await db()).query("UPDATE bookings SET data=data || $2::jsonb WHERE id=$1", [saved.id, JSON.stringify({ paymentProvider: "paypal", paypalOrderId: "ORDER-TEST" })]);
+  return saved;
 }
-function signedEvent(id: string, amount: number) {
-  const payload = JSON.stringify({ id: `evt_${randomUUID()}`, type: "checkout.session.completed", data: { object: { metadata: { bookingId: id }, payment_status: "paid", currency: "eur", amount_total: amount } } });
-  return { payload, signature: Stripe.webhooks.generateTestHeaderString({ payload, secret: process.env.STRIPE_WEBHOOK_SECRET! }) };
+function paymentEvent(amount = "10.00", orderId = "ORDER-TEST", currency = "EUR") {
+  const payload = JSON.stringify({ id: "event-" + randomUUID(), event_type: "PAYMENT.CAPTURE.COMPLETED", resource: { id: "CAPTURE-TEST", status: "COMPLETED", amount: { currency_code: currency, value: amount }, supplementary_data: { related_ids: { order_id: orderId } } } });
+  const headers = new Headers({ "paypal-auth-algo": "SHA256withRSA", "paypal-cert-url": "https://api-m.sandbox.paypal.com/certificates/test", "paypal-transmission-id": "test", "paypal-transmission-sig": "valid-test-signature", "paypal-transmission-time": new Date().toISOString() });
+  return { payload, headers };
 }
-test("un webhook signé confirme l’acompte une seule fois et rejette les signatures invalides", async () => {
-  const saved = await pendingPayment(); const event = signedEvent(saved.id, 2000);
-  await assert.rejects(handlePaymentWebhook(event.payload, "invalid-signature")); await handlePaymentWebhook(event.payload, event.signature); await handlePaymentWebhook(event.payload, event.signature);
-  const confirmed = await readBooking(saved.id, saved.token); assert.equal(confirmed.status, "confirmed"); assert.equal(confirmed.data.depositPaid, true);
+async function mockPayPal<T>(operation: (requests: { url: string; body: Record<string, unknown> }[]) => Promise<T>, signature = "SUCCESS", amount = "10.00") {
+  const original = globalThis.fetch; const requests: { url: string; body: Record<string, unknown> }[] = [];
+  globalThis.fetch = async (url, options) => {
+    const address = String(url); const body = options?.body ? (address.endsWith("/token") ? {} : JSON.parse(String(options.body))) : {};
+    requests.push({ url: address, body });
+    assert.ok(address.startsWith("https://api-m.sandbox.paypal.com/"));
+    let result: unknown;
+    if (address.endsWith("/token")) result = { access_token: "test-only-access-token" };
+    else if (address.endsWith("verify-webhook-signature")) result = { verification_status: signature };
+    else if (address.endsWith("/capture")) result = { id: "ORDER-TEST", status: "COMPLETED", purchase_units: [{ payments: { captures: [{ id: "CAPTURE-TEST", status: "COMPLETED", amount: { currency_code: "EUR", value: amount } }] } }] };
+    else if (address.endsWith("/ORDER-TEST")) result = { id: "ORDER-TEST", status: "APPROVED" };
+    else if (address.endsWith("/v2/checkout/orders")) result = { id: "ORDER-TEST", status: "PAYER_ACTION_REQUIRED", links: [{ rel: "payer-action", href: "https://www.sandbox.paypal.com/checkoutnow?token=ORDER-TEST" }] };
+    else throw new Error("Requête PayPal inattendue");
+    return Response.json(result);
+  };
+  try { return await operation(requests); } finally { globalThis.fetch = original; }
+}
+test("un webhook PayPal vérifié confirme exactement 10 € une seule fois", async () => {
+  const saved = await pendingPayment(); const event = paymentEvent();
+  await assert.rejects(handlePaymentWebhook(event.payload, new Headers()), /Signature/);
+  await mockPayPal(async () => { await assert.rejects(handlePaymentWebhook(event.payload, event.headers), /Signature/); }, "FAILURE");
+  await mockPayPal(async () => { await handlePaymentWebhook(event.payload, event.headers); await handlePaymentWebhook(event.payload, event.headers); });
+  const confirmed = await readBooking(saved.id, saved.token); assert.equal(confirmed.status, "confirmed"); assert.equal(confirmed.data.depositPaid, true); assert.equal(confirmed.data.deposit, 1000);
   assert.equal((await (await db()).query("SELECT * FROM payment_events")).rows.length, 1);
   assert.equal((await (await db()).query("SELECT * FROM notifications WHERE booking_id=$1", [saved.id])).rows.length, 2);
 });
-test("un montant Stripe incorrect ne confirme pas la réservation", async () => {
-  const saved = await pendingPayment(); const event = signedEvent(saved.id, 100); await handlePaymentWebhook(event.payload, event.signature); assert.equal((await readBooking(saved.id, saved.token)).status, "pending_payment");
+test("un montant ou une devise PayPal incorrects ne confirment pas la réservation", async () => {
+  const saved = await pendingPayment();
+  await mockPayPal(async () => {
+    for (const event of [paymentEvent("1.00"), paymentEvent("10.00", "ORDER-TEST", "USD"), paymentEvent("10.001")]) await assert.rejects(handlePaymentWebhook(event.payload, event.headers), /[Mm]ontant/);
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).status, "pending_payment");
 });
 test("un paiement tardif ne crée pas de double réservation", async () => {
   const saved = await pendingPayment(); await (await db()).query("UPDATE bookings SET expires_at=$2 WHERE id=$1", [saved.id, Date.now() - 1000]);
-  await createBooking(booking({ serviceId: "cornrows", variantId: "standard" })); const event = signedEvent(saved.id, 2000); await handlePaymentWebhook(event.payload, event.signature);
+  await saveContent("services", { ...initialServices.find(item => item.id === "cornrows")!, deposit: { type: "none", value: 0 } });
+  await createBooking(booking({ serviceId: "cornrows", variantId: "standard" })); const event = paymentEvent();
+  await mockPayPal(async () => { await handlePaymentWebhook(event.payload, event.headers); });
   const late = await readBooking(saved.id, saved.token); assert.equal(late.status, "cancelled"); assert.equal(late.data.depositPaid, true);
+});
+test("la page PayPal encaisse 10 €, lie la commande et vérifie la capture avant confirmation", async () => {
+  const saved = await pendingPayment();
+  await mockPayPal(async requests => {
+    const url = await checkoutSession(saved); assert.ok(url.startsWith("https://www.sandbox.paypal.com/"));
+    const creation = requests.find(item => item.url.endsWith("/v2/checkout/orders"))!.body;
+    assert.deepEqual((creation.purchase_units as { amount: unknown }[])[0].amount, { currency_code: "EUR", value: "10.00" });
+    assert.equal((await readBooking(saved.id, saved.token)).status, "pending_payment");
+    await assert.rejects(captureBookingPayment(saved.id, "x".repeat(43), "ORDER-TEST"));
+    await assert.rejects(captureBookingPayment(saved.id, saved.token, "OTHER-ORDER"), /correspond/);
+    await captureBookingPayment(saved.id, saved.token, "ORDER-TEST"); await captureBookingPayment(saved.id, saved.token, "ORDER-TEST");
+    assert.equal(requests.filter(item => item.url.endsWith("/capture")).length, 1);
+  });
+  const confirmed = await readBooking(saved.id, saved.token); assert.equal(confirmed.status, "confirmed"); assert.equal(confirmed.data.paypalCaptureId, "CAPTURE-TEST"); assert.equal(confirmed.data.price - confirmed.data.deposit, 5000);
+});
+test("le retour du navigateur seul et un autre paiement ne valident pas l’acompte", async () => {
+  const saved = await pendingPayment();
+  await mockPayPal(async () => { await assert.rejects(captureBookingPayment(saved.id, saved.token, "ORDER-TEST"), /montant/); }, "SUCCESS", "9.99");
+  const unrelated = paymentEvent("10.00", "OTHER-ORDER"); await mockPayPal(async () => handlePaymentWebhook(unrelated.payload, unrelated.headers));
+  assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+});
+test("les 17 familles de l’affiche reprennent tous les prix fournis et l’acompte fixe", () => {
+  const expected: Record<string, number[]> = {
+    knotless: [60,75,70,85,85,100], "boho-knotless": [70,85,75,90,85,90], "twist-boho": [75,95,80,95,95,115,120],
+    "fulani-knotless": [60,80], "fulani-motif-knotless": [85,115], "spiral-cornrows": [65,75], "criss-cross-knotless": [90,115],
+    "fulani-tribal": [85,100], "lemonade-twist": [85,90], "fulani-motifs-twist": [80,90], "fulani-spiral-twist": [85,95], "fulani-motifs-bob": [90,110],
+    "french-curl-bob": [85,100,85,100], "french-curl": [100,115], "knotless-boho-bob": [70], "twist-boho-bob": [70], "knotless-bob": [60],
+  };
+  const verified = initialServices.filter(service => service.pricingVerified); assert.equal(verified.length, 17);
+  for (const service of verified) { assert.deepEqual(service.variants.map(v => v.price / 100), expected[service.id]); assert.equal(service.hairIncluded, false); assert.equal(service.estimatedDuration, true); }
+  assert.ok(initialServices.every(service => service.deposit.type === "fixed" && service.deposit.value === 1000));
+});
+test("les suppléments de volume boho sont exclusifs et les boucles coûtent 5 €", () => {
+  const service = initialServices.find(s => s.id === "boho-knotless")!;
+  assert.equal(selection(service, "medium-1", ["curls", "beads", "volume-2x"]).price, 9000);
+  assert.throws(() => selection(service, "medium-1", ["volume-2x", "volume-3x"]), /un seul/);
+});
+test("l’import de l’affiche conserve l’historique et les futures modifications admin", async () => {
+  const saved = await createBooking(booking());
+  const connection = await db();
+  await connection.query("UPDATE bookings SET data=jsonb_set(data,'{price}','9500'::jsonb) WHERE id=$1", [saved.id]);
+  const old = (await one<Service>("services", "knotless"))!; old.variants[0].price = 9900; old.active = false; await saveContent("services", old);
+  await connection.query("DELETE FROM migration_history WHERE id='poster-paypal-deposit-20261007'");
+  await closeDatabase();
+  const imported = (await one<Service>("services", "knotless"))!;
+  assert.equal(imported.variants[0].price, 6000); assert.equal(imported.active, false); assert.equal(imported.deposit.value, 1000);
+  assert.equal((await readBooking(saved.id, saved.token)).data.price, 9500);
+  imported.variants[0].price = 6500; await saveContent("services", imported); await closeDatabase();
+  assert.equal((await one<Service>("services", "knotless"))!.variants[0].price, 6500);
+});
+
+test("le retour PayPal redirige vers le lien privé et ne confirme pas une commande étrangère", async () => {
+  const { NextRequest } = await import("next/server");
+  const { GET } = await import("../src/app/api/payments/paypal/return/route");
+  const saved = await pendingPayment();
+  const query = new URLSearchParams({ bookingId: saved.id, access: saved.token, token: "OTHER-ORDER" });
+  const rejected = await GET(new NextRequest("https://example.com/api/payments/paypal/return?" + query));
+  assert.equal(rejected.status, 303); assert.equal(new URL(rejected.headers.get("location")!).searchParams.get("payment"), "error");
+  assert.equal((await readBooking(saved.id, saved.token)).status, "pending_payment");
+  query.set("token", "ORDER-TEST");
+  await mockPayPal(async () => {
+    const confirmed = await GET(new NextRequest("https://example.com/api/payments/paypal/return?" + query));
+    assert.equal(confirmed.status, 303); const location = new URL(confirmed.headers.get("location")!);
+    assert.equal(location.origin, "https://example.com"); assert.equal(location.searchParams.get("token"), saved.token); assert.equal(location.searchParams.get("payment"), "success");
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).status, "confirmed");
 });

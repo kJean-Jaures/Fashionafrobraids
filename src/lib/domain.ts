@@ -4,6 +4,7 @@ import { db, transaction, all, one, getSettings, type Connection } from "./db";
 import { possibleSlots, timestamp, validDate } from "./time";
 import type { BookingInput, OrderInput } from "./validation";
 import { queueBookingEmails } from "./notifications";
+import { paypalConfigured } from "./paypal-config";
 
 export class DomainError extends Error { constructor(message: string, public status = 400) { super(message); } }
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -12,6 +13,7 @@ export type BookingData = {
   name: string; email: string; phone: string; note: string; serviceId: string;
   service: string; variantId: string; size: string; length: string; options: string[];
   price: number; duration: number; deposit: number; depositPaid: boolean; employee: string;
+  paymentProvider?: "paypal"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
 };
 export type Booking = { id: string; employee_id: string; start_time: number; end_time: number; status: "confirmed" | "cancelled" | "pending_payment"; expires_at: number | null; data: BookingData; created_at: number };
 export type OrderItem = { productId: string; name: string; quantity: number; price: number };
@@ -25,6 +27,8 @@ export function selection(service: Service, variantId: string, optionIds: string
   if (!variant || !service.active || service.quoteOnly) throw new DomainError("Cette prestation n’est pas réservable en ligne.");
   if (new Set(optionIds).size !== optionIds.length) throw new DomainError("Une option ne peut être sélectionnée qu’une fois.");
   const options = optionIds.map(id => { const option = service.options.find(item => item.id === id); if (!option) throw new DomainError("Cette option n’est pas disponible."); return option; });
+  const groups = options.map(option => option.exclusiveGroup).filter(Boolean);
+  if (new Set(groups).size !== groups.length) throw new DomainError("Choisissez un seul supplément de volume boho.");
   const price = variant.price + options.reduce((sum, option) => sum + option.price, 0);
   const duration = variant.duration + options.reduce((sum, option) => sum + option.duration, 0);
   const deposit = service.deposit.type === "none" ? 0 : service.deposit.type === "percent" ? Math.round(price * service.deposit.value / 100) : Math.min(price, service.deposit.value);
@@ -60,7 +64,7 @@ export async function createBooking(input: BookingInput) {
     const service = await one<Service>("services", input.serviceId, connection);
     if (!service) throw new DomainError("Cette prestation n’existe pas.");
     const selected = selection(service, input.variantId, input.optionIds);
-    if (selected.deposit && (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.PUBLIC_SITE_URL)) throw new DomainError("L’acompte en ligne n’est pas encore activé. Appelez le salon pour réserver cette prestation.", 503);
+    if (selected.deposit && !paypalConfigured()) throw new DomainError("L’acompte en ligne n’est pas encore activé. Appelez le salon pour réserver cette prestation.", 503);
     const settings = await getSettings(connection);
     const staff = (await all<Employee>("employees", connection)).filter(item => item.active && (!item.serviceIds.length || item.serviceIds.includes(service.id)) && (input.employeeId === "any" || input.employeeId === item.id));
     for (const employee of staff) {
@@ -68,7 +72,7 @@ export async function createBooking(input: BookingInput) {
       if (!slot || await busy(connection, employee.id, slot.start, slot.end)) continue;
       const data: BookingData = { name: input.name, email: input.email, phone: input.phone, note: input.note, serviceId: service.id, service: service.name, variantId: selected.variant.id, size: selected.variant.size, length: selected.variant.length, options: selected.options.map(option => option.label), price: selected.price, duration: selected.duration, deposit: selected.deposit, depositPaid: false, employee: employee.name };
       const status = selected.deposit ? "pending_payment" : "confirmed";
-      // Stripe impose au moins 30 minutes ; une marge évite l’expiration pendant la création de session.
+      // Le créneau est retenu pendant le paiement, puis libéré sans paiement vérifié.
       const expiry = selected.deposit ? Date.now() + 35 * 60000 : null;
       await connection.query("INSERT INTO bookings(id,token_hash,employee_id,start_time,end_time,status,expires_at,data,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)", [id, hashToken(token), employee.id, slot.start, slot.end, status, expiry, JSON.stringify(data), Date.now()]);
       const booking: Booking = { id, employee_id: employee.id, start_time: slot.start, end_time: slot.end, status, expires_at: expiry, data, created_at: Date.now() };

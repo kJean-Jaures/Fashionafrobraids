@@ -33,8 +33,9 @@ export const scheduleSchema = z.record(z.string(), day).refine(value => Array.fr
 export const serviceSchema = z.object({
   id, name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(60), description: z.string().max(1000), image,
   active: z.boolean(), quoteOnly: z.boolean(), hairIncluded: z.boolean(), estimatedDuration: z.boolean(),
-  variants: z.array(z.object({ id, size: z.string().max(60), length: z.string().max(60), price: z.number().int().min(0).max(200000), duration: z.number().int().min(15).max(690) })).min(1).max(60),
-  options: z.array(z.object({ id, label: z.string().min(1).max(60), price: z.number().int().min(0).max(50000), duration: z.number().int().min(0).max(180) })).max(20),
+  pricingVerified: z.boolean().default(false),
+  variants: z.array(z.object({ id, size: z.string().max(60), length: z.string().max(60), price: z.number().int().min(0).max(200000), duration: z.number().int().min(15).max(690), image: image.optional() })).min(1).max(60),
+  options: z.array(z.object({ id, label: z.string().min(1).max(60), price: z.number().int().min(0).max(50000), duration: z.number().int().min(0).max(180), exclusiveGroup: id.optional() })).max(20),
   deposit: z.object({ type: z.enum(["none", "percent", "fixed"]), value: z.number().int().min(0).max(200000) }).refine(value => value.type !== "percent" || value.value <= 100, "Un pourcentage ne peut pas dépasser 100 %.")
 }).refine(value => new Set(value.variants.map(v => v.id)).size === value.variants.length && new Set(value.options.map(v => v.id)).size === value.options.length, "Les variantes et options doivent avoir des identifiants uniques.");
 export const productSchema = z.object({ id, name: z.string().trim().min(2).max(100), category: z.string().min(1).max(60), description: z.string().max(1000), price: z.number().int().min(0).max(200000), stock: z.number().int().min(0).max(100000), image, size: z.string().max(100), active: z.boolean() });

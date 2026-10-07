@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X, ShoppingBag, ArrowUpRight, MapPin, Phone, Camera as Instagram, Download, CalendarDays } from "lucide-react";
@@ -7,7 +8,7 @@ import { useSite } from "./provider";
 import { Modal } from "./ui";
 import { CartDrawer } from "./shop";
 
-export function Logo() { return <span className="brand"><svg viewBox="0 0 44 50" aria-hidden="true"><path d="M26 5c-8-3-16 5-16 15 0 8 3 12 9 16l-7 10h23l-5-16c4-2 7-5 7-10 0-9-5-16-11-15Z" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M17 10c11 2 15 11 10 22M13 15c12 3 16 11 10 19M12 22c7 1 11 5 9 12M22 7c10 5 13 14 9 21" fill="none" stroke="currentColor" strokeWidth="1"/><circle cx="30" cy="25" r="2" fill="currentColor"/></svg><span>FASHION <span className="brand-second">AFRO BRAIDS</span><small>PARIS</small></span></span>; }
+export function Logo() { return <span className="brand"><Image className="brand-logo" src="/images/logo-fashion-afro-braids.jpg" alt="Logo original Fashion Afro Braids Paris" width={64} height={58} sizes="64px" loading="eager"/><span>FASHION <span className="brand-second">AFRO BRAIDS</span><small>PARIS</small></span></span>; }
 const links = [["Accueil", "/"], ["Nos coiffures", "/coiffures"], ["Tarifs", "/tarifs"], ["Boutique", "/boutique"], ["À propos", "/a-propos"], ["Avis", "/#avis"], ["Contact", "/contact"]];
 
 export function Header() {

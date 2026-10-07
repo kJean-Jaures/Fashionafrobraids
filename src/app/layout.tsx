@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description: "Fashion Afro Braids, salon de coiffure afro à Paris 18e spécialisé en braids, knotless, tresses, extensions, perruques et soins capillaires. Réservez votre rendez-vous.",
   applicationName: "Fashion Afro Braids", manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Fashion Afro Braids" },
-  icons: { icon: "/icon.svg", apple: "/icons/icon-192.png" },
+  icons: { icon: "/icon.svg", apple: "/images/logo-fashion-afro-braids.jpg" },
   openGraph: { type: "website", locale: "fr_FR", siteName: "Fashion Afro Braids Paris", title: "L’art de sublimer vos cheveux.", description: "Coiffure afro, braids et soins capillaires à Paris 18e.", images: [{ url: "/images/hero.webp", width: 1024, height: 1536 }] },
   robots: { index: process.env.DEMO_MODE !== "true" && process.env.ALLOW_INDEXING === "true", follow: process.env.DEMO_MODE !== "true" }
 };

@@ -1,3 +1,4 @@
+import { paypalConfigured } from "./paypal-config";
 import { db, all, transaction, type Collection } from "./db";
 import { DomainError, hydrateBooking, type Booking, type Order, type Block } from "./domain";
 import { serviceSchema, productSchema, employeeSchema, gallerySchema, reviewSchema, settingsSchema } from "./validation";
@@ -12,7 +13,7 @@ export async function dashboard() {
     connection.query<Block>("SELECT * FROM blocks ORDER BY start_time"), connection.query("SELECT * FROM messages ORDER BY created_at DESC LIMIT 200"),
     connection.query("SELECT status,COUNT(*)::int AS count FROM notifications GROUP BY status"), connection.query<{ product_id: string; stock: number }>("SELECT * FROM inventory")
   ]);
-  return { services, products: (products as Product[]).map(product => ({ ...product, stock: stocks.rows.find(row => row.product_id === product.id)?.stock || 0 })), employees, gallery, reviews, settings: settings.rows[0].data, bookings: bookings.rows.map(hydrateBooking), orders: orders.rows.map(order => ({ ...order, created_at: Number(order.created_at) })), blocks: blocks.rows.map(block => ({ ...block, start_time: Number(block.start_time), end_time: Number(block.end_time) })), messages: messages.rows, notifications: notifications.rows, integrations: { email: !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM), stripe: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET && process.env.PUBLIC_SITE_URL), externalPostgres: !!process.env.DATABASE_URL } };
+  return { services, products: (products as Product[]).map(product => ({ ...product, stock: stocks.rows.find(row => row.product_id === product.id)?.stock || 0 })), employees, gallery, reviews, settings: settings.rows[0].data, bookings: bookings.rows.map(hydrateBooking), orders: orders.rows.map(order => ({ ...order, created_at: Number(order.created_at) })), blocks: blocks.rows.map(block => ({ ...block, start_time: Number(block.start_time), end_time: Number(block.end_time) })), messages: messages.rows, notifications: notifications.rows, integrations: { email: !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM), paypal: paypalConfigured(), externalPostgres: !!process.env.DATABASE_URL } };
 }
 export async function saveContent(collection: Collection, raw: unknown) {
   const schemas = { services: serviceSchema, products: productSchema, employees: employeeSchema, gallery: gallerySchema, reviews: reviewSchema };

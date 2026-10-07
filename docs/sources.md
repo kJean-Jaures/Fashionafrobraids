@@ -15,4 +15,15 @@ Les visuels suivants sont repris du site actuel et optimisés en WebP, sans retr
 
 `hero.webp` et `gallery.webp` sont des portraits d’inspiration générés pour cette première version. Les illustrations SVG initiales sont conservées comme choix de remplacement.
 
-L’adresse, le téléphone, les catégories de prestations et les quatre prix produits ont été vérifiés sur la page d’accueil. Les horaires divergent entre le bandeau (08 h 30) et le contact (08 h 00) du site existant : le nouveau planning utilise 08 h 30–20 h, comme demandé. Le catalogue détaillé des prestations suit la grille initiale transmise dans la conversation et reste à valider, même lorsque le site actuel présente une image de tarifs.
+L’adresse, le téléphone, les catégories de prestations et les quatre prix produits ont été vérifiés sur la page d’accueil. Les horaires divergent entre le bandeau (08 h 30) et le contact (08 h 00) du site existant : le nouveau planning utilise 08 h 30–20 h, comme demandé. Le catalogue complémentaire suit la grille initiale transmise dans la conversation et reste indicatif.
+
+
+## Affiche et logo fournis par le salon
+
+Le fichier `Grey Black Clean Minimalist Price List Fashion Brand Flyer A4 Document .pdf` (trois pages) et la photo jointe du logo ont été fournis par le propriétaire. Le logo original est conservé dans `public/images/logo-fashion-afro-braids.jpg`. Les icônes SVG incorporent cette même image sans modification de ses pixels.
+
+Les 24 fichiers `poster-*.jpeg` sont les photographies extraites de cette affiche, sans retouche ni retrait de signatures. Elles sont présentées comme des visuels de l’affiche, sans leur attribuer une provenance photographique non vérifiée.
+
+Les tarifs ont été relevés sur les pages rendues : le PDF contient aussi des couches textuelles masquées qui ne correspondent pas toutes à la page visible. Seul le contenu visible a été retenu. Les 17 familles, leurs variantes et les quatre suppléments sont enregistrés dans `src/lib/poster-catalog.ts`, puis importés en base lors d’une migration unique. L’intitulé « Fulani TRIAL Knotless » de l’affiche est normalisé en « Fulani Tribal Knotless ». Les longueurs indiquées pour « Fulani motifs Bob » sont conservées telles qu’affichées.
+
+Aucune durée ne figure sur l’affiche : les durées restent estimées et administrables. Le supplément boho 2× et le supplément 3× sont exclusifs. Aucune longueur ni aucun tarif absent de l’affiche n’est ajouté aux styles identifiés comme vérifiés.
