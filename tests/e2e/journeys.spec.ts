@@ -6,33 +6,60 @@ import sharp from "sharp";
 test("accueil, navigation mobile, galerie et absence de débordement", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/");
   await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
-  await expect(page.locator(".hero-image img")).toHaveAttribute("src", /reference-spiral-cornrows/);
+  await expect(page.locator(".hero-image img")).toHaveAttribute("src", /acuity-85576228/);
   await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Ouvrir le menu" }).click(); await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("link", { name: "Nos coiffures" }).click();
-  await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.getByRole("button", { name: "Voir Spiral cornrows" }).click();
+  await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.locator(".gallery-item").first().click();
   await expect(page.getByRole("dialog")).toBeVisible(); await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).not.toBeVisible();
 });
 
 test("les photos du catalogue fourni sont associées à la bonne prestation et à la réservation", async ({ page, request }) => {
   const catalog = await (await request.get("/api/catalog")).json();
-  expect(catalog.gallery.every((photo: { illustrative: boolean }) => !photo.illustrative)).toBe(true);
-  for (const id of ["spiral-cornrows", "twists-homme", "coupe-homme"]) {
+  expect(catalog.gallery).toHaveLength(72);
+  for (const [id, imageId] of [["knotless", "85575979"], ["twists-homme", "85579289"], ["coupe-homme", "85579143"]]) {
     const service = catalog.services.find((item: { id: string }) => item.id === id);
     await page.goto(`/coiffures/${id}`);
     const photo = page.locator(".detail-photo img");
-    await expect(photo).toHaveAttribute("src", new RegExp(`reference-${id}`));
-    await expect(page.locator(".image-note")).toHaveText("Photo du catalogue fourni par le salon");
+    await expect(photo).toHaveAttribute("src", new RegExp(`acuity-${imageId}`));
+    await expect(page.locator(".image-note")).toHaveText("Visuel du catalogue de réservation du salon");
     await expect.poll(() => photo.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await page.getByRole("link", { name: "Réserver cette coiffure" }).click();
-    await expect(page.locator(".summary-photo img")).toHaveAttribute("src", new RegExp(`reference-${id}`));
+    await expect(page.locator(".summary-photo img")).toHaveAttribute("src", new RegExp(`acuity-${imageId}`));
     await expect(page.locator(".summary-row").filter({ hasText: "Acompte" })).toHaveText(/10/);
-    expect(service.variants.every((variant: { image: string }) => variant.image === service.image)).toBe(true);
+    expect(service.variants[0].referenceId).toBe(imageId);
   }
 });
 
 test("l’accueil respecte les contrôles automatisés WCAG AA", async ({ page }) => {
   await page.goto("/"); const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze(); expect(result.violations).toEqual([]);
+});
+test("photos par variante, durée réelle et horaires de réservation", async ({ page }) => {
+  await page.goto("/coiffures/knotless");
+  await expect(page.locator(".detail-price-row")).toContainText("1 h 5 min");
+  await page.getByRole("button", { name: "Small", exact: true }).click();
+  await expect(page.locator(".detail-photo img")).toHaveAttribute("src", /acuity-85576228/);
+  await page.getByRole("button", { name: "Micro", exact: true }).click();
+  await expect(page.locator(".detail-price-row")).toContainText("Durée à confirmer");
+  await expect(page.getByRole("link", { name: "Contacter le salon", exact: true })).toBeVisible();
+  await page.goto("/reservation?prestation=knotless&variante=3-1");
+  await expect(page.getByRole("button", { name: "Choisir mon créneau" })).toBeDisabled();
+  await expect(page.getByText("Cette variante nécessite une confirmation", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Medium", exact: true }).click();
+  await expect(page.locator(".summary-info")).toContainText("1 h 5 min");
+  await page.getByRole("button", { name: "Choisir mon créneau" }).click();
+  await expect(page.locator(".calendar")).toContainText("08 h 30 — 20 h 00");
+  const date = addDays(parisDate(), 6);
+  if (date.slice(0, 7) !== parisDate().slice(0, 7)) await page.getByRole("button", { name: "Mois suivant" }).click();
+  const label = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+  await page.getByRole("button", { name: label, exact: true }).click();
+  await expect(page.getByRole("button", { name: "18 h 30", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "19 h 00", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "20 h 00", exact: true })).toHaveCount(0);
+  await page.goto("/#galerie");
+  await expect(page.locator(".gallery-item")).toHaveCount(12);
+  await page.getByRole("button", { name: /Voir plus de coiffures/ }).click();
+  await expect(page.locator(".gallery-item")).toHaveCount(24);
 });
 test("acompte obligatoire, puis calendrier et annulation avec une exception admin de test", async ({ page, request }) => {
   const catalog = await (await request.get("/api/catalog")).json();
@@ -58,7 +85,7 @@ test("acompte obligatoire, puis calendrier et annulation avec une exception admi
   await page.getByLabel("Prénom", { exact: true }).fill("Cliente"); await page.getByLabel("Nom", { exact: true }).fill("E2E"); await page.getByLabel("Téléphone", { exact: true }).fill("0612345678"); await page.getByLabel("E-mail", { exact: true }).fill("test@example.com"); await page.getByRole("checkbox").check(); await page.getByRole("button", { name: "Confirmer mon rendez-vous" }).click();
   await expect(page.getByRole("heading", { name: "Votre moment est réservé." })).toBeVisible();
   const url = new URL(page.url()); const id = url.pathname.split("/").pop(); const token = url.searchParams.get("token");
-  const saved = await (await request.get(`/api/bookings/${id}?token=${token}`)).json(); expect(saved.data.price).toBe(6000); expect(saved.end_time - saved.start_time).toBe(300 * 60000);
+  const saved = await (await request.get(`/api/bookings/${id}?token=${token}`)).json(); expect(saved.data.price).toBe(6000); expect(saved.end_time - saved.start_time).toBe(65 * 60000);
   const calendar = await request.get(`/api/bookings/${id}/calendar?token=${token}`); expect(calendar.status()).toBe(200); expect(await calendar.text()).toContain("BEGIN:VEVENT");
   await page.getByRole("button", { name: "Annuler mon rendez-vous" }).click(); await page.getByRole("button", { name: "Confirmer l’annulation" }).click(); await expect(page.getByRole("heading", { name: "Votre rendez-vous est annulé." })).toBeVisible();
   expect((await request.put("/api/admin/content/services", { headers: authHeaders, data: service })).status()).toBe(200);
@@ -106,7 +133,7 @@ test("le logo original, les prix de l’affiche et les 10 € sont visibles sur 
   await page.getByRole("button", { name: "Small", exact: true }).click();
   await page.getByRole("button", { name: "Bas du dos", exact: true }).click();
   await expect(page.locator(".detail-price-row strong")).toHaveText(/85/);
-  await expect(page.locator(".detail-photo img")).toHaveAttribute("src", /poster-knotless-small/);
+  await expect(page.locator(".detail-photo img")).toHaveAttribute("src", /acuity-85576278/);
   await page.getByRole("link", { name: "Réserver cette coiffure" }).click();
   await expect(page.locator(".summary-row").filter({ hasText: "Acompte" })).toHaveText(/10/);
   await expect(page.locator(".summary-row").filter({ hasText: "Solde au salon" })).toHaveText(/75/);

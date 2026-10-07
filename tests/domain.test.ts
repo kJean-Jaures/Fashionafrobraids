@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { db, closeDatabase, one, publicCatalog } from "../src/lib/db";
-import { initialSettings, initialServices, type Service } from "../src/lib/catalog";
+import { initialSettings, initialServices, canBookVariant, durationIsEstimated, priceIsVerified, type Service } from "../src/lib/catalog";
+import { referenceAppointments } from "../src/lib/acuity-catalog";
 import { availability, createBooking, readBooking, cancelBooking, createOrder, readOrder, updateOrder, createBlock, moveBooking, selection } from "../src/lib/domain";
 import { saveContent, removeContent, saveSettings } from "../src/lib/admin";
 import { addDays, parisDate, timestamp, localTimeToEpoch } from "../src/lib/time";
@@ -25,8 +26,11 @@ beforeEach(async () => {
   await connection.query("DELETE FROM content WHERE collection='employees' AND id<>'salon'");
   await connection.query("UPDATE inventory SET stock=10");
   await saveSettings(initialSettings);
-  // Les tests de planning isolent le paiement ; la règle publique est testée séparément.
-  await saveContent("services", { ...initialServices.find(item => item.id === "knotless")!, deposit: { type: "none", value: 0 } });
+  // Fixture de cinq heures pour tester le planning indépendamment des durées du salon.
+  // La durée réelle de 65 minutes et la règle d’acompte sont testées séparément.
+  const fixture = structuredClone(initialServices.find(item => item.id === "knotless")!);
+  fixture.variants.find(variant => variant.id === "1-1")!.duration = 300;
+  await saveContent("services", { ...fixture, deposit: { type: "none", value: 0 } });
 });
 after(async () => { await closeDatabase(); await rm(directory, { recursive: true, force: true }); });
 
@@ -204,13 +208,63 @@ test("les 17 familles de l’affiche reprennent tous les prix fournis et l’aco
     "french-curl-bob": [85,100,85,100], "french-curl": [100,115], "knotless-boho-bob": [70], "twist-boho-bob": [70], "knotless-bob": [60],
   };
   const verified = initialServices.filter(service => service.pricingVerified); assert.equal(verified.length, 17);
-  for (const service of verified) { assert.deepEqual(service.variants.map(v => v.price / 100), expected[service.id]); assert.equal(service.hairIncluded, false); assert.equal(service.estimatedDuration, true); }
+  for (const service of verified) { assert.deepEqual(service.variants.filter(variant => priceIsVerified(service, variant)).map(v => v.price / 100), expected[service.id]); assert.equal(service.hairIncluded, false); }
   assert.ok(initialServices.every(service => service.deposit.type === "fixed" && service.deposit.value === 1000));
 });
 test("les suppléments de volume boho sont exclusifs et les boucles coûtent 5 €", () => {
-  const service = initialServices.find(s => s.id === "boho-knotless")!;
+  const original = initialServices.find(s => s.id === "boho-knotless")!;
+  const service = { ...original, bookingEnabled: true, variants: original.variants.map(variant => ({ ...variant, bookable: true })) };
   assert.equal(selection(service, "medium-1", ["curls", "beads", "volume-2x"]).price, 9000);
   assert.throws(() => selection(service, "medium-1", ["volume-2x", "volume-3x"]), /un seul/);
+});
+test("les 100 variantes du catalogue public reprennent exactement leurs durées et leurs images", () => {
+  const variants = initialServices.filter(service => service.active).flatMap(service => service.variants);
+  assert.equal(new Set(variants.map(variant => variant.referenceId).filter(Boolean)).size, 100);
+  for (const source of referenceAppointments) {
+    const imported = variants.filter(variant => variant.referenceId === String(source.id));
+    assert.ok(imported.length > 0);
+    for (const variant of imported) { assert.equal(variant.duration, source.duration); assert.equal(variant.image, source.image); assert.equal(variant.estimatedDuration, false); }
+  }
+});
+test("les Knotless Medium réservent 65 minutes et ne dépassent pas la fermeture à 20 h", async () => {
+  const service = structuredClone(initialServices.find(service => service.id === "knotless")!);
+  service.deposit = { type: "none", value: 0 }; await saveContent("services", service);
+  const saved = await createBooking(booking({ time: "10:00" }));
+  assert.equal(saved.end_time, timestamp(future(), "11:05"));
+  const slots = await availability("knotless", "1-1", future());
+  assert.equal(slots[0], "08:30"); assert.ok(!slots.includes("11:00")); assert.ok(slots.includes("11:30"));
+  assert.ok(slots.includes("18:30")); assert.ok(!slots.includes("19:00")); assert.ok(!slots.includes("20:00"));
+  await assert.rejects(createBooking(booking({ time: "19:00" })), /disponible/);
+  const last = await createBooking(booking({ time: "18:30" })); assert.equal(last.end_time, timestamp(future(), "19:35"));
+});
+test("une durée non publiée n’est pas attribuée à Micro et ne peut pas réserver un créneau", async () => {
+  const service = (await one<Service>("services", "knotless"))!;
+  const medium = service.variants.find(variant => variant.id === "1-2")!;
+  const micro = service.variants.find(variant => variant.id === "3-1")!;
+  assert.equal(durationIsEstimated(service, medium), false);
+  assert.equal(durationIsEstimated(service, micro), true); assert.equal(canBookVariant(service, micro), false);
+  await assert.rejects(availability("knotless", "3-1", future()), /confirmer/);
+});
+test("le catalogue complet migre une seule fois sans modifier les rendez-vous existants", async () => {
+  const saved = await createBooking(booking());
+  const service = (await one<Service>("services", "knotless"))!;
+  service.variants[0].price = 6500; service.variants[0].duration = 350;
+  service.deposit = { type: "fixed", value: 1000 }; service.active = false;
+  await saveContent("services", service);
+  const settings = structuredClone(initialSettings); settings.schedule["1"].start = "09:00"; await saveSettings(settings);
+  await (await db()).query("UPDATE inventory SET stock=7 WHERE product_id='bonnet'");
+  await (await db()).query("DELETE FROM migration_history WHERE id='goodhair-full-catalogue-20261007'");
+  await closeDatabase();
+  const imported = (await one<Service>("services", "knotless"))!;
+  assert.equal(imported.variants[0].price, 6500); assert.equal(imported.variants[0].duration, 65);
+  assert.equal(imported.variants[0].image, "/images/acuity-85575979.jpg"); assert.equal(imported.active, false); assert.deepEqual(imported.deposit, service.deposit);
+  assert.equal((await readBooking(saved.id, saved.token)).end_time, saved.end_time);
+  const catalog = await publicCatalog(); assert.deepEqual(catalog.settings.schedule, initialSettings.schedule); assert.equal(catalog.products.find(product => product.id === "bonnet")!.stock, 7);
+  imported.variants[0].duration = 90; imported.variants[0].price = 7000; await saveContent("services", imported);
+  settings.schedule["1"].start = "10:00"; await saveSettings(settings); await closeDatabase();
+  const updated = (await one<Service>("services", "knotless"))!;
+  assert.equal(updated.variants[0].duration, 90); assert.equal(updated.variants[0].price, 7000);
+  assert.equal((await publicCatalog()).settings.schedule["1"].start, "10:00");
 });
 test("l’import des photos conserve tarifs, durées, acompte et historique puis respecte les modifications admin", async () => {
   const saved = await createBooking(booking());

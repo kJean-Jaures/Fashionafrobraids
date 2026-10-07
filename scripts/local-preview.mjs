@@ -3,33 +3,35 @@ import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { catalogueVersion } from "../src/lib/catalogue-version.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const portArgument = process.argv.slice(2).find(value => value.startsWith("--port="));
-const port = portArgument ? Number(portArgument.slice(7)) : 3000;
+let port = portArgument ? Number(portArgument.slice(7)) : 3000;
 if (!Number.isInteger(port) || port < 1024 || port > 65535) {
   console.error("Choisissez un port entre 1024 et 65535."); process.exit(1);
 }
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error("Installez Node.js 24 depuis https://nodejs.org, puis relancez ce fichier."); process.exit(1);
 }
-const address = "http://localhost:" + port;
-const probeAddress = "http://127.0.0.1:" + port;
+let address = "http://localhost:" + port;
+let probeAddress = "http://127.0.0.1:" + port;
 const demoEnvironment = { ...process.env, DEMO_MODE: "true", ALLOW_INDEXING: "false" };
 
-async function ready() {
+async function currentCatalogue() {
   try {
     const response = await fetch(probeAddress + "/api/catalog", { signal: AbortSignal.timeout(2500) });
-    if (!response.ok) return false;
+    if (!response.ok) return null;
     const data = await response.json();
-    return data.settings?.timezone === "Europe/Paris" && Array.isArray(data.services) && Array.isArray(data.products) && typeof data.bookingPaymentsEnabled === "boolean";
-  } catch { return false; }
+    return data.settings?.timezone === "Europe/Paris" && data.settings?.name === "Fashion Afro Braids Paris" && Array.isArray(data.services) && Array.isArray(data.products) && typeof data.bookingPaymentsEnabled === "boolean" ? data : null;
+  } catch { return null; }
 }
-function portAvailable() {
+async function ready() { return (await currentCatalogue())?.catalogueVersion === catalogueVersion; }
+function portAvailable(candidate = port) {
   return new Promise((resolvePromise, reject) => {
     const probe = createServer();
     probe.once("error", error => error.code === "EADDRINUSE" ? resolvePromise(false) : reject(error));
-    probe.listen(port, "127.0.0.1", () => probe.close(() => resolvePromise(true)));
+    probe.listen(candidate, "127.0.0.1", () => probe.close(() => resolvePromise(true)));
   });
 }
 function npm(args) {
@@ -53,6 +55,17 @@ function openBrowser() {
 async function main() {
   console.log("Fashion Afro Braids · aperçu local sur votre ordinateur\n");
   if (await ready()) { openBrowser(); return; }
+  if (await currentCatalogue()) {
+    // Un ancien ZIP peut encore servir le port 3000. Ouvrir la nouvelle copie
+    // sans arrêter ce serveur ni réutiliser silencieusement ses anciens contenus.
+    let available;
+    for (let candidate = port + 1; candidate <= Math.min(port + 10, 65535); candidate++) {
+      if (await portAvailable(candidate)) { available = candidate; break; }
+    }
+    if (!available) throw new Error("Fermez l’ancienne fenêtre du site, puis relancez cette version.");
+    port = available; address = "http://localhost:" + port; probeAddress = "http://127.0.0.1:" + port;
+    console.log("Une ancienne version du site est encore ouverte. Cette nouvelle version utilisera le port " + port + ".");
+  }
   if (!await portAvailable()) {
     // L’application peut être en train de compiler dans une autre fenêtre.
     for (let attempt = 0; attempt < 8; attempt++) {

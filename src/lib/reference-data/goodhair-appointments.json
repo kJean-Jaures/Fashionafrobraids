@@ -1,0 +1,1002 @@
+[
+  {
+    "id": 85578330,
+    "name": "Carré",
+    "category": "FRENCH CURLS",
+    "description": "",
+    "duration": 65,
+    "price": 9000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85578330.jpg?1769591861",
+    "image": "/images/acuity-85578330.jpg"
+  },
+  {
+    "id": 85578357,
+    "name": "Bas du dos",
+    "category": "FRENCH CURLS",
+    "description": "",
+    "duration": 65,
+    "price": 11000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578357.jpg?1776867218",
+    "image": "/images/acuity-85578357.jpg"
+  },
+  {
+    "id": 85577936,
+    "name": "Carré",
+    "category": "FULANI",
+    "description": "+10 euros si perle ajoutée",
+    "duration": 65,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85577936.jpg?1776867390",
+    "image": "/images/acuity-85577936.jpg"
+  },
+  {
+    "id": 85577946,
+    "name": "Milieu du dos",
+    "category": "FULANI",
+    "description": "",
+    "duration": 69,
+    "price": 7500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85577946.jpg?1776867769",
+    "image": "/images/acuity-85577946.jpg"
+  },
+  {
+    "id": 85577976,
+    "name": "Bas du dos",
+    "category": "FULANI",
+    "description": "+5 euros pour boho",
+    "duration": 65,
+    "price": 8500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85577976.jpg?1776867999",
+    "image": "/images/acuity-85577976.jpg"
+  },
+  {
+    "id": 85578000,
+    "name": "Fesses",
+    "category": "FULANI",
+    "description": "+5 euros pour boho",
+    "duration": 65,
+    "price": 9000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85578000.jpg?1769590354",
+    "image": "/images/acuity-85578000.jpg"
+  },
+  {
+    "id": 85578046,
+    "name": "PONYTAIL BRAIDS",
+    "category": "PONYTAIL BRAIDS",
+    "description": "",
+    "duration": 65,
+    "price": 12000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85578046.jpg?1769592646",
+    "image": "/images/acuity-85578046.jpg"
+  },
+  {
+    "id": 85576565,
+    "name": "Carré",
+    "category": "VANILLES - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 6500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576565.jpg?1776876565",
+    "image": "/images/acuity-85576565.jpg"
+  },
+  {
+    "id": 85576586,
+    "name": "Milieu de dos",
+    "category": "VANILLES - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 7500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576586.jpg?1776876718",
+    "image": "/images/acuity-85576586.jpg"
+  },
+  {
+    "id": 85576605,
+    "name": "Bas du dos",
+    "category": "VANILLES - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 8500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576605.jpg?1776876836",
+    "image": "/images/acuity-85576605.jpg"
+  },
+  {
+    "id": 85577391,
+    "name": "Fesses",
+    "category": "VANILLES - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 9500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85577391.jpg?1776876852",
+    "image": "/images/acuity-85577391.jpg"
+  },
+  {
+    "id": 85576376,
+    "name": "Carée",
+    "category": "BRAID / KNOTLESS - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 4000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576376.jpg?1776873496",
+    "image": "/images/acuity-85576376.jpg"
+  },
+  {
+    "id": 85576432,
+    "name": "Milieu de dos",
+    "category": "BRAID / KNOTLESS - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576432.jpg?1776873596",
+    "image": "/images/acuity-85576432.jpg"
+  },
+  {
+    "id": 85576461,
+    "name": "Bas du dos",
+    "category": "BRAID / KNOTLESS - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 6000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576461.jpg?1776873639",
+    "image": "/images/acuity-85576461.jpg"
+  },
+  {
+    "id": 85576518,
+    "name": "Fesses",
+    "category": "BRAID / KNOTLESS - Jumbo",
+    "description": "",
+    "duration": 60,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576518.jpg?1776873735",
+    "image": "/images/acuity-85576518.jpg"
+  },
+  {
+    "id": 85576030,
+    "name": "Carré",
+    "category": "BRAID / KNOTLESS - Medium",
+    "description": "",
+    "duration": 55,
+    "price": 6000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576030.jpg?1776874058",
+    "image": "/images/acuity-85576030.jpg"
+  },
+  {
+    "id": 85575979,
+    "name": "Milieu du dos",
+    "category": "BRAID / KNOTLESS - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85575979.jpg?1776874138",
+    "image": "/images/acuity-85575979.jpg"
+  },
+  {
+    "id": 85576107,
+    "name": "Bas du dos",
+    "category": "BRAID / KNOTLESS - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 8000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576107.jpg?1776874584",
+    "image": "/images/acuity-85576107.jpg"
+  },
+  {
+    "id": 85576135,
+    "name": "Fesses",
+    "category": "BRAID / KNOTLESS - Medium",
+    "description": "",
+    "duration": 65,
+    "price": 9000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576135.jpg?1776874889",
+    "image": "/images/acuity-85576135.jpg"
+  },
+  {
+    "id": 85576177,
+    "name": "Carré",
+    "category": "BRAID / KNOTLESS - Small",
+    "description": "+5 euros avec perle",
+    "duration": 65,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576177.jpg?1776875246",
+    "image": "/images/acuity-85576177.jpg"
+  },
+  {
+    "id": 85576228,
+    "name": "Milieu du dos",
+    "category": "BRAID / KNOTLESS - Small",
+    "description": "",
+    "duration": 65,
+    "price": 9000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576228.jpg?1776875196",
+    "image": "/images/acuity-85576228.jpg"
+  },
+  {
+    "id": 85576278,
+    "name": "Bas du dos",
+    "category": "BRAID / KNOTLESS - Small",
+    "description": "",
+    "duration": 65,
+    "price": 10000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576278.jpg?1776875343",
+    "image": "/images/acuity-85576278.jpg"
+  },
+  {
+    "id": 85576331,
+    "name": "Fesses",
+    "category": "BRAID / KNOTLESS - Small",
+    "description": "",
+    "duration": 65,
+    "price": 11500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85576331.jpg?1776875367",
+    "image": "/images/acuity-85576331.jpg"
+  },
+  {
+    "id": 85580734,
+    "name": "Shampoing + soin + brushing Cheveux courts",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 45,
+    "price": 12000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580772,
+    "name": "Shampoing + soin + brushing - Cheveux mi-longs",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 65,
+    "price": 5500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580820,
+    "name": "Shampoing + soin + brushing - Cheveux longs",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 65,
+    "price": 6500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580870,
+    "name": "Shampoing + Séchage",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 60,
+    "price": 2000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580944,
+    "name": "Shampoing et brushing - Cheveux courts",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 50,
+    "price": 3500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580991,
+    "name": "Shampoing et brushing - Cheveux mi-longs",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 90,
+    "price": 4500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85581038,
+    "name": "Shampoing et brushing - Cheveux longs",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85581123,
+    "name": "Lissage ( Silk press ) - Cheveux courts",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85581157,
+    "name": "Lissage ( Silk press ) - Cheveux mi-longs",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 60,
+    "price": 6000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85581230,
+    "name": "Lissage ( Silk press ) - Cheveux longs",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 65,
+    "price": 7000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85581262,
+    "name": "Coupe des pointes",
+    "category": "BRUSHING / LISSAGE",
+    "description": "",
+    "duration": 20,
+    "price": 1000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577824,
+    "name": "2 nattes collées avec mèche",
+    "category": "CORNROW",
+    "description": "",
+    "duration": 60,
+    "price": 3500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85577824.jpg?1770111274",
+    "image": "/images/acuity-85577824.jpg"
+  },
+  {
+    "id": 85577850,
+    "name": "4 à 6 nattes collées avec mèche",
+    "category": "CORNROW",
+    "description": "",
+    "duration": 63,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85577850.jpg?1770111462",
+    "image": "/images/acuity-85577850.jpg"
+  },
+  {
+    "id": 85577894,
+    "name": "14 et plus, nattes collées avec mèche",
+    "category": "CORNROW",
+    "description": "",
+    "duration": 180,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85577894.jpg?1770111959",
+    "image": "/images/acuity-85577894.jpg"
+  },
+  {
+    "id": 85579856,
+    "name": "Shampoing & Définition Simple des Boucles",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579856.jpg?1776875991",
+    "image": "/images/acuity-85579856.jpg"
+  },
+  {
+    "id": 85579921,
+    "name": "Définition des Boucles Curly – Mise en forme Finger Coil / Finger brush - Cheveux court",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579921.jpg?1776876010",
+    "image": "/images/acuity-85579921.jpg"
+  },
+  {
+    "id": 85579997,
+    "name": "Cheveux mi-longs",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 8000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580009,
+    "name": "Cheveux longs",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 10000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580127,
+    "name": "Définition des Boucles Curly – Soin profond , Hydratation & Mise en Forme Cheveux court",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 11000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580176,
+    "name": "Cheveux mi-longs",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 12000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580371,
+    "name": "Cheveux longs",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 14000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580560,
+    "name": "Permanente Afro",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 65,
+    "price": 8000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85580560.png?1776876178",
+    "image": "/images/acuity-85580560.png"
+  },
+  {
+    "id": 85580584,
+    "name": "Coupe à sec",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 60,
+    "price": 3000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85580607,
+    "name": "Coupe des pointes",
+    "category": "CURLY / NAPPY",
+    "description": "",
+    "duration": 30,
+    "price": 1000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85581315,
+    "name": "Chignon",
+    "category": "FEMME - COUPE DE CHEVEUX ET COIFFURE",
+    "description": "",
+    "duration": 90,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85581315.jpg?1776875596",
+    "image": "/images/acuity-85581315.jpg"
+  },
+  {
+    "id": 85578892,
+    "name": "Vanilles",
+    "category": "FEMME COIFFURE PROTECTRICE ( SANS MECHES)",
+    "description": "",
+    "duration": 60,
+    "price": 4000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578892.jpg?1776868632",
+    "image": "/images/acuity-85578892.jpg"
+  },
+  {
+    "id": 85578929,
+    "name": "Tresses",
+    "category": "FEMME COIFFURE PROTECTRICE ( SANS MECHES)",
+    "description": "",
+    "duration": 60,
+    "price": 3000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85578929.jpg?1776877039",
+    "image": "/images/acuity-85578929.jpg"
+  },
+  {
+    "id": 85578963,
+    "name": "Nattes collées simples",
+    "category": "FEMME COIFFURE PROTECTRICE ( SANS MECHES)",
+    "description": "",
+    "duration": 60,
+    "price": 3000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578963.jpg?1776868727",
+    "image": "/images/acuity-85578963.jpg"
+  },
+  {
+    "id": 85579014,
+    "name": "Contours (sans barbe)",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 30,
+    "price": 500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579014.jpg?1769642297",
+    "image": "/images/acuity-85579014.jpg"
+  },
+  {
+    "id": 85579094,
+    "name": "Contours + Barbe",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 30,
+    "price": 800,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579094.jpg?1769642797",
+    "image": "/images/acuity-85579094.jpg"
+  },
+  {
+    "id": 85579122,
+    "name": "Coupe enfant (de 3 ans à 13 ans)",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 30,
+    "price": 1000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579122.jpg?1769642569",
+    "image": "/images/acuity-85579122.jpg"
+  },
+  {
+    "id": 85579143,
+    "name": "Dégradé + barbe",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 30,
+    "price": 1500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579143.jpg?1769642930",
+    "image": "/images/acuity-85579143.jpg"
+  },
+  {
+    "id": 85579164,
+    "name": "Nattes collées simple",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 60,
+    "price": 3000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579164.jpg?1769643325",
+    "image": "/images/acuity-85579164.jpg"
+  },
+  {
+    "id": 85579193,
+    "name": "Nattes collée simple avec rajout",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 90,
+    "price": 3500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579193.jpg?1769679341",
+    "image": "/images/acuity-85579193.jpg"
+  },
+  {
+    "id": 85579216,
+    "name": "Nattes collées + motifs",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 90,
+    "price": 4000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579216.jpg?1769677533",
+    "image": "/images/acuity-85579216.jpg"
+  },
+  {
+    "id": 85579230,
+    "name": "Fulani",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 90,
+    "price": 4500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579230.jpg?1769677694",
+    "image": "/images/acuity-85579230.jpg"
+  },
+  {
+    "id": 85579257,
+    "name": "Tresses",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 45,
+    "price": 4500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579257.jpg?1769679673",
+    "image": "/images/acuity-85579257.jpg"
+  },
+  {
+    "id": 85579289,
+    "name": "Vanille",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 90,
+    "price": 4500,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85579289.jpg?1769678084",
+    "image": "/images/acuity-85579289.jpg"
+  },
+  {
+    "id": 85579306,
+    "name": "Fulani avec rajout",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 60,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85579306.jpg?1769678661",
+    "image": "/images/acuity-85579306.jpg"
+  },
+  {
+    "id": 85579326,
+    "name": "Tresses avec rajout",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 59,
+    "price": 5000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579356,
+    "name": "Vanilles avec rajout",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85579356.jpg?1769678804",
+    "image": "/images/acuity-85579356.jpg"
+  },
+  {
+    "id": 85579390,
+    "name": "Barrel twist",
+    "category": "HOMME - COIFFURE AFRO / BARBER",
+    "description": "",
+    "duration": 65,
+    "price": 6000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85579390.jpg?1769679158",
+    "image": "/images/acuity-85579390.jpg"
+  },
+  {
+    "id": 85578520,
+    "name": "Carré",
+    "category": "INVISIBLE LOCKS",
+    "description": "",
+    "duration": 240,
+    "price": 8000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578520.jpg?1776872805",
+    "image": "/images/acuity-85578520.jpg"
+  },
+  {
+    "id": 85578570,
+    "name": "Mi-long",
+    "category": "INVISIBLE LOCKS",
+    "description": "",
+    "duration": 240,
+    "price": 9000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578570.jpg?1776872844",
+    "image": "/images/acuity-85578570.jpg"
+  },
+  {
+    "id": 85578607,
+    "name": "Long",
+    "category": "INVISIBLE LOCKS",
+    "description": "",
+    "duration": 300,
+    "price": 12000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85578607.jpg?1776872869",
+    "image": "/images/acuity-85578607.jpg"
+  },
+  {
+    "id": 85579480,
+    "name": "Réparation locks (prix par locks)",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 30,
+    "price": 500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579501,
+    "name": "Doublage de locks (prix par locks)",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 30,
+    "price": 700,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579591,
+    "name": "Coiffage après reprise (Barrel twist, vanilles, tresses, pétales)",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 30,
+    "price": 1500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579650,
+    "name": "Reprise racine en twist",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 270,
+    "price": 7000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579665,
+    "name": "Reprise des longueurs au crochet aiguille",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 65,
+    "price": 9000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579680,
+    "name": "Reprise racine au crochet",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 70,
+    "price": 9000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579696,
+    "name": "Reprise racine en twist + longueur au crochet aiguille",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 240,
+    "price": 10000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579710,
+    "name": "Reprise racine microlocks",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 240,
+    "price": 10000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579723,
+    "name": "Départ en twist ou coils",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 240,
+    "price": 11000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579746,
+    "name": "Reprise racine + longueur au crochet",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 185,
+    "price": 13000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579767,
+    "name": "Reprise racine + longueurs microlocks",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 180,
+    "price": 13000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579786,
+    "name": "Départ instantané au crochet",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 160,
+    "price": 15000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85579805,
+    "name": "Microlocks",
+    "category": "LOCKS",
+    "description": "",
+    "duration": 67,
+    "price": 15000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85578660,
+    "name": "Court",
+    "category": "SOFT LOCKS",
+    "description": "",
+    "duration": 70,
+    "price": 8000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578660.jpg?1776872087",
+    "image": "/images/acuity-85578660.jpg"
+  },
+  {
+    "id": 85578705,
+    "name": "Mi-long",
+    "category": "SOFT LOCKS",
+    "description": "",
+    "duration": 70,
+    "price": 9000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578705.jpg?1776872356",
+    "image": "/images/acuity-85578705.jpg"
+  },
+  {
+    "id": 85578738,
+    "name": "Long",
+    "category": "SOFT LOCKS",
+    "description": "",
+    "duration": 70,
+    "price": 11000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578738.jpg?1776872293",
+    "image": "/images/acuity-85578738.jpg"
+  },
+  {
+    "id": 85578086,
+    "name": "Ligne de tissage",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 60,
+    "price": 1000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578086.jpg?1776877216",
+    "image": "/images/acuity-85578086.jpg"
+  },
+  {
+    "id": 85578129,
+    "name": "Retrait de tissage",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 60,
+    "price": 2000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578129.png?1776877495",
+    "image": "/images/acuity-85578129.png"
+  },
+  {
+    "id": 85578148,
+    "name": "Crochet",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-thumb-85578148.jpg?1776877691",
+    "image": "/images/acuity-85578148.jpg"
+  },
+  {
+    "id": 85578166,
+    "name": "Tissage ouvert",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 65,
+    "price": 5000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85578180,
+    "name": "Tissage closure",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 65,
+    "price": 6000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85578199,
+    "name": "Tissage fermé",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 65,
+    "price": 6000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85578233,
+    "name": "Demi-tête + Fulani",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 65,
+    "price": 7500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85578276,
+    "name": "Demi-tête + Ponytail",
+    "category": "TISSAGE / CROCHET",
+    "description": "",
+    "duration": 65,
+    "price": 7500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577664,
+    "name": "Carré",
+    "category": "VANILLES - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 4500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577717,
+    "name": "Milieu du dos",
+    "category": "VANILLES - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 5500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577743,
+    "name": "Bas du dos",
+    "category": "VANILLES - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 6500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577764,
+    "name": "Fesses",
+    "category": "VANILLES - Jumbo",
+    "description": "",
+    "duration": 65,
+    "price": 7500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577461,
+    "name": "Carré",
+    "category": "VANILLES - Small",
+    "description": "",
+    "duration": 65,
+    "price": 7000,
+    "sourceImage": "https://cdn-s.acuityscheduling.com/appointmentType-85577461.jpg?1769597965",
+    "image": "/images/acuity-85577461.jpg"
+  },
+  {
+    "id": 85577484,
+    "name": "Milieu du dos",
+    "category": "VANILLES - Small",
+    "description": "",
+    "duration": 65,
+    "price": 8500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577592,
+    "name": "Bas du dos",
+    "category": "VANILLES - Small",
+    "description": "",
+    "duration": 65,
+    "price": 9500,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  },
+  {
+    "id": 85577621,
+    "name": "Fesses",
+    "category": "VANILLES - Small",
+    "description": "",
+    "duration": 65,
+    "price": 11000,
+    "sourceImage": "",
+    "image": "/images/photo-a-ajouter.svg"
+  }
+]

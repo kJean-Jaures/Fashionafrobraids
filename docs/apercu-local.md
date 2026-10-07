@@ -13,6 +13,10 @@ Le lanceur affiche l’adresse locale du site. Cette adresse fonctionne **sur l�
 
 Le lanceur active le mode démonstration : cet aperçu permet de parcourir le catalogue et les tarifs, utiliser le panier et ouvrir l’administration. La confirmation d’une réservation avec acompte attend une connexion PayPal sandbox ; aucun paiement réel n’est activé dans cet aperçu. Les données restent sur votre ordinateur.
 
+### Voir la dernière mise à jour
+
+Fermer l’ancienne fenêtre du serveur avec **Ctrl+C**, puis télécharger à nouveau le ZIP ci-dessus et l’extraire dans un **nouveau dossier**. Lancer `Demarrer-le-site.cmd` depuis ce nouveau dossier. Les changements ne s’installent pas dans une ancienne archive déjà extraite. Pour conserver vos propres données de gestion, utiliser plutôt une mise à jour Git du dossier existant ou sauvegarder vos données avant de changer de dossier.
+
 ### macOS, Linux ou terminal Windows
 
 Ouvrir un terminal dans le dossier extrait, puis lancer :
@@ -21,7 +25,7 @@ Ouvrir un terminal dans le dossier extrait, puis lancer :
 npm run local
 ```
 
-Node.js 24 est nécessaire. Cette commande prépare le projet, démarre le serveur et ouvre le navigateur. Elle réutilise un serveur Fashion Afro Braids déjà lancé sur le même port.
+Node.js 24 est nécessaire. Cette commande prépare le projet, démarre le serveur et ouvre le navigateur. Elle réutilise un serveur Fashion Afro Braids déjà lancé uniquement si sa version de catalogue correspond à cette copie du projet. Si une ancienne copie tourne encore, elle démarre la nouvelle version sur un port libre et affiche son adresse.
 
 Si un autre logiciel utilise le port 3000 :
 

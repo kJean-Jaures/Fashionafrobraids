@@ -141,7 +141,7 @@ em { font-style:italic; }
 .gallery-filters { margin-bottom:27px; }
 .gallery-filters .filter-chip { border-color:#dac1cc; color:#624953; }
 .gallery-filters .filter-chip.selected { border-color:#cd96ae; background:var(--rose); color:var(--ink); }
-.gallery-grid { display:grid; grid-template-columns:1.3fr 1fr 1fr; grid-template-rows:250px 250px; gap:18px; }
+.gallery-grid { display:grid; grid-template-columns:1.3fr 1fr 1fr; grid-template-rows:250px 250px; grid-auto-rows:250px; gap:18px; }
 .gallery-item { position:relative; padding:0; overflow:hidden; text-align:left; }
 .gallery-item .photo { position:absolute; inset:0; }
 .gallery-0 { grid-row:span 2; }
@@ -636,3 +636,6 @@ input[type=checkbox] { accent-color:#883056; height:15px; width:15px; }
 
 .choice-field { border:0; padding:0; min-width:0; }
 .choice-field>legend { display:block; font-size:10px; font-weight:500; margin-bottom:8px; color:#575043; }
+
+.service-duration { display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--muted); margin-top:.75rem; }
+.gallery-more { margin-top:2rem; }

@@ -1,12 +1,14 @@
 import { posterServices } from "./poster-catalog";
 import { referenceGallery, withReferencePhoto } from "./reference-photos";
-export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string; imageSource?: string };
-export type Extra = { id: string; label: string; price: number; duration: number; exclusiveGroup?: string };
+import { completeReferenceGallery, withAcuityCatalogue } from "./acuity-catalog";
+export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string; imageSource?: string; referenceId?: string; estimatedDuration?: boolean; pricingVerified?: boolean; bookable?: boolean };
+export type Extra = { id: string; label: string; price: number; duration: number; exclusiveGroup?: string; estimatedDuration?: boolean };
 export type Deposit = { type: "none" | "percent" | "fixed"; value: number };
 export type Service = {
   id: string; name: string; category: string; description: string; image: string; imageSource?: string;
   active: boolean; quoteOnly: boolean; hairIncluded: boolean; estimatedDuration: boolean; pricingVerified?: boolean;
   variants: Variant[]; options: Extra[]; deposit: Deposit;
+  referenceCatalog?: boolean; bookingEnabled?: boolean; choiceLabel?: string; hairNote?: string;
 };
 export type Product = { id: string; name: string; category: string; description: string; price: number; stock: number; image: string; size: string; active: boolean };
 export type ScheduleDay = { closed: boolean; start: string; end: string };
@@ -83,7 +85,8 @@ const provisionalServices: Service[] = [braid("knotless", "Knotless Braids", "Kn
   if (category === "Enfants") item.variants = ["0–5 ans", "6–12 ans", "13–17 ans"].map((size, index) => ({ ...item.variants[0], id: String(index), size }));
   return item;
 }))];
-export const initialServices: Service[] = [...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto);
+export const provisionalServiceIds = provisionalServices.map(service => service.id).filter(id => !posterServices.some(service => service.id === id));
+export const initialServices: Service[] = withAcuityCatalogue([...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto), provisionalServiceIds);
 export const initialProducts: Product[] = [
   { id: "bonnet", name: "Bonnet en satin", category: "Accessoires", description: "Un essentiel tout doux pour protéger votre coiffure pendant la nuit.", price: 1000, stock: 0, image: "/images/bonnet-current.webp", size: "Modèles et disponibilité à confirmer", active: true },
   { id: "perruque", name: "Perruque", category: "Perruques", description: "Choisissez votre nouvelle allure. Modèles et caractéristiques à préciser avec le salon.", price: 10000, stock: 0, image: "/images/wig-current.webp", size: "Modèle à préciser", active: true },
@@ -98,7 +101,7 @@ export const starterGallery: GalleryPhoto[] = [
   { id: "salon-current", title: "Ambiance du salon · visuel du site actuel", category: "Salon", image: "/images/salon-current.webp", position: "center", active: true, illustrative: true },
   { id: "texture-current", title: "Textures & caractère", category: "Extensions", image: "/images/texture-current.webp", position: "center", active: true, illustrative: true }
 ];
-export const initialGallery: GalleryPhoto[] = [...referenceGallery, ...starterGallery.map(photo => ({ ...photo, active: false }))];
+export const initialGallery: GalleryPhoto[] = [...completeReferenceGallery, ...referenceGallery.map(photo => ({ ...photo, active: false })), ...starterGallery.map(photo => ({ ...photo, active: false }))];
 // Témoignages repris du site public le 7 octobre 2026. Aucune note numérique n’est publiée sur la source.
 export const initialReviews: Review[] = [
   { id: "lea-kim", name: "Léa Kim", text: "Salon très propre et récent, ce qui est agréable. Les coiffures sont exécutées très rapidement puisque la coiffeuse est toujours accompagnée d’une autre pour tresser une seule personne.", rating: 0, active: true },
@@ -109,3 +112,8 @@ export const initialReviews: Review[] = [
 export const money = (cents: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 export const durationLabel = (minutes: number) => `${Math.floor(minutes / 60) ? `${Math.floor(minutes / 60)} h` : ""}${minutes % 60 ? ` ${minutes % 60} min` : ""}`.trim();
 export const servicePrice = (service: Service) => Math.min(...service.variants.map(variant => variant.price));
+export const canBookVariant = (service: Service, variant: Variant) => !service.quoteOnly && service.bookingEnabled !== false && variant.bookable !== false;
+export const canBookService = (service: Service) => service.variants.some(variant => canBookVariant(service, variant));
+export const hasKnownDuration = (service: Service, variant: Variant) => !(variant.estimatedDuration ?? service.estimatedDuration) || canBookVariant(service, variant);
+export const priceIsVerified = (service: Service, variant: Variant) => variant.pricingVerified ?? Boolean(service.pricingVerified);
+export const durationIsEstimated = (service: Service, variant: Variant, options: Extra[] = []) => (variant.estimatedDuration ?? service.estimatedDuration) || options.some(option => option.duration > 0 && option.estimatedDuration !== false);

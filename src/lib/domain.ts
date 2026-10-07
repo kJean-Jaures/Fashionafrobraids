@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import type { Service, Product, Employee } from "./catalog";
+import { canBookVariant, type Service, type Product, type Employee } from "./catalog";
 import { db, transaction, all, one, getSettings, type Connection } from "./db";
 import { possibleSlots, timestamp, validDate } from "./time";
 import type { BookingInput, OrderInput } from "./validation";
@@ -24,7 +24,7 @@ const hydrateBooking = (row: Booking): Booking => ({ ...row, start_time: Number(
 
 export function selection(service: Service, variantId: string, optionIds: string[]) {
   const variant = service.variants.find(item => item.id === variantId);
-  if (!variant || !service.active || service.quoteOnly) throw new DomainError("Cette prestation n’est pas réservable en ligne.");
+  if (!variant || !service.active || !canBookVariant(service, variant)) throw new DomainError("Contactez le salon pour confirmer cette prestation avant de réserver.");
   if (new Set(optionIds).size !== optionIds.length) throw new DomainError("Une option ne peut être sélectionnée qu’une fois.");
   const options = optionIds.map(id => { const option = service.options.find(item => item.id === id); if (!option) throw new DomainError("Cette option n’est pas disponible."); return option; });
   const groups = options.map(option => option.exclusiveGroup).filter(Boolean);
