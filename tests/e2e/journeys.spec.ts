@@ -1,0 +1,64 @@
+import { test, expect } from "@playwright/test";
+import { addDays, parisDate } from "../../src/lib/time";
+import AxeBuilder from "@axe-core/playwright";
+import sharp from "sharp";
+
+test("accueil, navigation mobile, galerie et absence de débordement", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/");
+  await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
+  await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Ouvrir le menu" }).click(); await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("link", { name: "Nos coiffures" }).click();
+  await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.getByRole("button", { name: "Voir Knotless, naturellement" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible(); await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).not.toBeVisible();
+});
+
+test("l’accueil respecte les contrôles automatisés WCAG AA", async ({ page }) => {
+  await page.goto("/"); const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze(); expect(result.violations).toEqual([]);
+});
+test("réservation depuis la fiche, contrôle de durée, calendrier et annulation", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/coiffures/knotless"); await page.getByRole("button", { name: "Medium", exact: true }).click(); await page.getByRole("button", { name: "Milieu du dos", exact: true }).click();
+  await page.getByRole("link", { name: "Réserver cette coiffure" }).click(); await page.getByRole("button", { name: "Choisir mon créneau" }).click();
+  const date = addDays(parisDate(), 8); const dayName = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+  if (date.slice(0, 7) !== parisDate().slice(0, 7)) await page.getByRole("button", { name: "Mois suivant" }).click();
+  await page.getByRole("button", { name: dayName, exact: true }).click(); await page.getByRole("button", { name: "08 h 30", exact: true }).click(); await page.getByRole("button", { name: "Continuer", exact: true }).click();
+  await page.getByLabel("Prénom", { exact: true }).fill("Cliente"); await page.getByLabel("Nom", { exact: true }).fill("E2E"); await page.getByLabel("Téléphone", { exact: true }).fill("0612345678"); await page.getByLabel("E-mail", { exact: true }).fill("test@example.com"); await page.getByRole("checkbox").check(); await page.getByRole("button", { name: "Confirmer mon rendez-vous" }).click();
+  await expect(page.getByRole("heading", { name: "Votre moment est réservé." })).toBeVisible();
+  const url = new URL(page.url()); const id = url.pathname.split("/").pop(); const token = url.searchParams.get("token");
+  const saved = await (await request.get(`/api/bookings/${id}?token=${token}`)).json(); expect(saved.data.price).toBe(8000); expect(saved.end_time - saved.start_time).toBe(300 * 60000);
+  const calendar = await request.get(`/api/bookings/${id}/calendar?token=${token}`); expect(calendar.status()).toBe(200); expect(await calendar.text()).toContain("BEGIN:VEVENT");
+  await page.getByRole("button", { name: "Annuler mon rendez-vous" }).click(); await page.getByRole("button", { name: "Confirmer l’annulation" }).click(); await expect(page.getByRole("heading", { name: "Votre rendez-vous est annulé." })).toBeVisible();
+});
+test("administration protégée, stock modifiable, panier et commande persistante", async ({ page, request }) => {
+  expect((await request.get("/api/admin")).status()).toBe(401);
+  await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter" }).click();
+  await expect(page.getByRole("heading", { name: "Rendez-vous", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Produits & stocks" }).click(); const bonnet = page.locator(".admin-content-card").filter({ has: page.getByRole("heading", { name: "Bonnet en satin" }) }); await bonnet.getByRole("button", { name: "Modifier" }).click();
+  await page.getByLabel("Stock disponible").fill("4"); await page.getByRole("button", { name: "Enregistrer produit" }).click(); await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page.goto("/boutique"); const product = page.locator(".product-card").filter({ has: page.getByRole("heading", { name: "Bonnet en satin" }) }); await product.getByRole("button", { name: "Ajouter", exact: true }).click();
+  await page.getByRole("button", { name: /Ouvrir le panier/ }).click(); await page.getByRole("link", { name: "Passer la commande" }).click();
+  await page.getByLabel("Prénom", { exact: true }).fill("Cliente"); await page.getByLabel("Nom", { exact: true }).fill("Boutique"); await page.getByLabel("E-mail", { exact: true }).fill("test@example.com"); await page.getByLabel("Téléphone", { exact: true }).fill("0612345678"); await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Confirmer ma commande/ }).click();
+  await expect(page.getByRole("heading", { name: "Vos essentiels vous attendent." })).toBeVisible(); await page.reload(); await expect(page.getByRole("heading", { name: "Vos essentiels vous attendent." })).toBeVisible();
+  const catalog = await (await request.get("/api/catalog")).json(); expect(catalog.products.find((p: { id: string }) => p.id === "bonnet").stock).toBe(3);
+});
+test("le contact enregistre le message dans le tableau de bord", async ({ page, request }) => {
+  await page.goto("/contact"); await page.getByLabel("Nom et prénom").fill("Visiteuse Test"); await page.getByLabel("E-mail", { exact: true }).fill("test@example.com"); await page.getByLabel("Votre message").fill("Bonjour, pouvez-vous me conseiller une coiffure protectrice ?"); await page.getByRole("checkbox").check(); await page.getByRole("button", { name: "Envoyer mon message" }).click(); await expect(page.getByRole("heading", { name: "Votre message est enregistré." })).toBeVisible();
+  await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Messages", exact: true }).click(); await expect(page.getByText("Bonjour, pouvez-vous me conseiller une coiffure protectrice ?", { exact: true })).toBeVisible();
+});
+test("manifest PWA, pages privées et refus d’une mutation depuis une autre origine", async ({ request }) => {
+  const manifest = await (await request.get("/manifest.webmanifest")).json(); expect(manifest.display).toBe("standalone"); expect(manifest.icons).toHaveLength(3);
+  expect((await request.get("/icons/icon-512.png")).status()).toBe(200); expect((await request.get("/api/bookings/RDV-inconnu?token=bad")).status()).toBe(404);
+  const response = await request.post("/api/orders", { headers: { Origin: "https://untrusted.example" }, data: {} }); expect(response.status()).toBe(403);
+});
+
+test("une photo ajoutée dans la galerie reste accessible en production", async ({ page, request }) => {
+  await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Galerie", exact: true }).click(); await page.getByRole("button", { name: "Ajouter photo" }).click(); await page.getByLabel("Titre", { exact: true }).fill("Photo de test");
+  const fixture = await sharp({ create: { width: 40, height: 40, channels: 3, background: "#D4AF37" } }).png().toBuffer();
+  await page.getByLabel("Photo", { exact: true }).setInputFiles({ name: "test.png", mimeType: "image/png", buffer: fixture });
+  await expect(page.getByLabel("Chemin de la photo existante")).toHaveValue(/\/images\/upload-.*\.webp/); const image = await page.getByLabel("Chemin de la photo existante").inputValue();
+  const response = await request.get(image); expect(response.status()).toBe(200); expect(response.headers()["content-type"]).toBe("image/webp");
+  await page.getByRole("button", { name: "Enregistrer photo" }).click(); await expect(page.getByRole("dialog")).not.toBeVisible(); await page.reload(); await expect(page.getByRole("heading", { name: "Rendez-vous", exact: true })).toBeVisible(); await page.getByRole("button", { name: "Galerie", exact: true }).click(); await expect(page.getByRole("heading", { name: "Photo de test", exact: true })).toBeVisible();
+});

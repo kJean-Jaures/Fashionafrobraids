@@ -1,0 +1,26 @@
+# Aperçu de test : fichiers et données éphémères, sans paiement ni e-mail.
+# Pour l'ouverture commerciale, utiliser PostgreSQL et un stockage persistant.
+services:
+  - type: web
+    name: fashion-afro-braids-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev --no-audit --no-fund && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/catalog
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: PORT
+        value: 10000
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: ALLOW_INDEXING
+        value: "false"
+      - key: DEMO_MODE
+        value: "true"
+      - key: DATA_DIR
+        value: /tmp/fashion-afro-braids-demo/postgres
+      - key: UPLOAD_DIR
+        value: /tmp/fashion-afro-braids-demo/uploads
