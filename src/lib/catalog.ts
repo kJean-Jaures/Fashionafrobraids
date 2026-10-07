@@ -2,6 +2,7 @@ import { posterServices } from "./poster-catalog";
 import { referenceGallery, withReferencePhoto } from "./reference-photos";
 import { completeReferenceGallery, withAcuityCatalogue } from "./acuity-catalog";
 import { withPinterestPhotos } from "./pinterest-service-photos";
+import { withEstimatedDurations } from "./duration-estimates";
 export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string; imageSource?: string; imageLink?: string; referenceId?: string; estimatedDuration?: boolean; pricingVerified?: boolean; bookable?: boolean };
 export type Extra = { id: string; label: string; price: number; duration: number; exclusiveGroup?: string; estimatedDuration?: boolean };
 export type Deposit = { type: "none" | "percent" | "fixed"; value: number };
@@ -27,7 +28,7 @@ export type Settings = {
 };
 export const salon = { name: "Fashion Afro Braids Paris", timezone: "Europe/Paris", address: "74 Avenue de Saint-Ouen, 75018 Paris", phone: "+33 6 25 19 74 29" };
 export const initialSettings: Settings = {
-  ...salon, email: "", pricingApproved: false, bookingDays: 60, advanceMinutes: 120,
+  ...salon, email: "", pricingApproved: true, bookingDays: 60, advanceMinutes: 120,
   bookingBufferMinutes: 0, bookingInstructions: "", confirmationEmail: true, reminderEmail: true, reminderHours: 24,
   schedule: Object.fromEntries(Array.from({ length: 7 }, (_, day) => [String(day), { closed: false, start: "08:30", end: "20:00" }])),
   instagram: "", tiktok: "", facebook: "", legalName: "", siret: "", legalEmail: ""
@@ -90,7 +91,7 @@ const provisionalServices: Service[] = [braid("knotless", "Knotless Braids", "Kn
   return item;
 }))];
 export const provisionalServiceIds = provisionalServices.map(service => service.id).filter(id => !posterServices.some(service => service.id === id));
-export const initialServices: Service[] = withAcuityCatalogue([...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto), provisionalServiceIds).map(withPinterestPhotos);
+export const initialServices: Service[] = withAcuityCatalogue([...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto), provisionalServiceIds).map(withPinterestPhotos).map(withEstimatedDurations);
 export const initialProducts: Product[] = [
   { id: "bonnet", name: "Bonnet en satin", category: "Accessoires", description: "Un essentiel tout doux pour protéger votre coiffure pendant la nuit.", price: 1000, stock: 0, image: "/images/bonnet-current.webp", size: "Modèles et disponibilité à confirmer", active: true },
   { id: "perruque", name: "Perruque", category: "Perruques", description: "Choisissez votre nouvelle allure. Modèles et caractéristiques à préciser avec le salon.", price: 10000, stock: 0, image: "/images/wig-current.webp", size: "Modèle à préciser", active: true },

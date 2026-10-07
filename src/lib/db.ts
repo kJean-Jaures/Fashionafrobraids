@@ -9,6 +9,7 @@ import { completeReferenceGallery, withAcuityCatalogue } from "./acuity-catalog"
 import { catalogueVersion } from "./catalogue-version.mjs";
 import { retiredServiceIds, retiredGalleryIds } from "./catalogue-selection";
 import { withPinterestPhotos } from "./pinterest-service-photos";
+import { withEstimatedDurations } from "./duration-estimates";
 import { paypalConfigured } from "./paypal-config";
 import { initialServices, provisionalServiceIds, initialProducts, initialSettings, initialGallery, starterGallery, initialReviews, type Service, type Product, type Settings, type Employee, type GalleryPhoto, type Review } from "./catalog";
 
@@ -51,6 +52,7 @@ async function initialise(connection: Connection) {
     await migrateFullCatalogue(connection);
     await migrateCatalogueSelection(connection);
     await migratePinterestPhotos(connection);
+    await migrateDurationEstimates(connection);
     return;
   }
   for (const [collection, values] of Object.entries({ services: initialServices, products: initialProducts, gallery: initialGallery, reviews: initialReviews, employees: [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }] })) {
@@ -64,6 +66,18 @@ async function initialise(connection: Connection) {
   await migrateFullCatalogue(connection);
   await migrateCatalogueSelection(connection);
   await migratePinterestPhotos(connection);
+  await migrateDurationEstimates(connection);
+}
+async function migrateDurationEstimates(connection: Connection) {
+  await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
+  if ((await connection.query("SELECT id FROM migration_history WHERE id='fashion-duration-estimates-prices-approved-20261007'")).rows.length) return;
+  for (const service of await all<Service>("services", connection)) {
+    const updated = withEstimatedDurations(service);
+    if (updated !== service) await connection.query("UPDATE content SET data=$2::jsonb WHERE collection='services' AND id=$1", [service.id, JSON.stringify(updated)]);
+  }
+  // Validation explicite des tarifs par le propriétaire, sans changer les prix.
+  await connection.query("UPDATE settings SET data=jsonb_set(data,'{pricingApproved}','true'::jsonb) WHERE id='salon'");
+  await connection.query("INSERT INTO migration_history(id) VALUES('fashion-duration-estimates-prices-approved-20261007')");
 }
 async function migratePinterestPhotos(connection: Connection) {
   await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");

@@ -41,6 +41,29 @@ test("les photos du catalogue fourni sont associées à la bonne prestation et �
 test("l’accueil respecte les contrôles automatisés WCAG AA", async ({ page }) => {
   await page.goto("/"); const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze(); expect(result.violations).toEqual([]);
 });
+test("les photos restent entières et les animations respectent la préférence de mouvement réduit", async ({ page }) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/");
+  await expect(page.locator(".hero-visual")).toHaveCSS("animation-name", "hero-enter");
+  await page.locator(".expertise-card").first().scrollIntoViewIfNeeded();
+  await expect(page.locator(".expertise-card").first()).toHaveClass(/reveal-entered/);
+  await page.goto("/#galerie");
+  await page.locator(".gallery-item").first().click();
+  await expect(page.locator(".lightbox-photo img")).toHaveCSS("object-fit", "contain");
+  await expect.poll(()=>page.locator(".lightbox-photo img").evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/");
+  await expect(page.locator(".hero-visual")).toHaveCSS("animation-name", "none");
+  await page.goto("/coiffures/boho-knotless");
+  await expect(page.locator(".detail-photo img")).toHaveCSS("object-fit", "contain");
+  await expect(page.locator(".detail-price-row")).toContainText("1 h 35 min environ");
+  await expect(page.locator(".detail-price-row strong")).toHaveText(/70/);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.getByRole("link",{name:"Réserver cette coiffure"}).click();
+  await expect(page.locator(".summary-info")).toContainText("1 h 35 min environ");
+  await expect(page.getByRole("button",{name:"Choisir mon créneau"})).toBeEnabled();
+});
 test("les prestations retirées ne sont plus proposées ni accessibles directement", async ({ page, request }) => {
   const catalog = await (await request.get("/api/catalog")).json();
   for (const id of ["barber-contours", "coupe-homme", "coupe-a-sec", "coupe-pointes"]) {
@@ -77,11 +100,11 @@ test("photos par variante, durée réelle et horaires de réservation", async ({
   await page.getByRole("button", { name: "Small", exact: true }).click();
   await expect(page.locator(".detail-photo img")).toHaveAttribute("src", /acuity-85576228/);
   await page.getByRole("button", { name: "Micro", exact: true }).click();
-  await expect(page.locator(".detail-price-row")).toContainText("Durée à confirmer");
-  await expect(page.getByRole("link", { name: "Contacter le salon", exact: true })).toBeVisible();
+  await expect(page.locator(".detail-price-row")).toContainText("1 h 35 min environ");
+  await expect(page.getByRole("link", { name: "Réserver cette coiffure", exact: true })).toBeVisible();
   await page.goto("/reservation?prestation=knotless&variante=3-1");
-  await expect(page.getByRole("button", { name: "Choisir mon créneau" })).toBeDisabled();
-  await expect(page.getByText("Cette variante nécessite une confirmation", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choisir mon créneau" })).toBeEnabled();
+  await expect(page.locator(".summary-info")).toContainText("1 h 35 min environ");
   await page.getByRole("button", { name: "Medium", exact: true }).click();
   await expect(page.locator(".summary-info")).toContainText("1 h 5 min");
   await page.getByRole("button", { name: "Choisir mon créneau" }).click();
@@ -194,6 +217,12 @@ test("le logo original, les prix de l’affiche et les 10 € sont visibles sur 
 });
 
 test("la préparation du salon enregistre les consignes et valide un tarif par variante sur mobile", async ({ page, request }) => {
+  // Simuler une demande de revalidation dans la base temporaire uniquement.
+  const originalSettings = (await (await request.get("/api/catalog")).json()).settings;
+  const initialLogin = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
+  const initialHeaders = { Cookie: initialLogin.headers()["set-cookie"].split(";")[0] };
+  expect((await request.put("/api/admin/settings", { headers:initialHeaders, data:{...originalSettings,pricingApproved:false} })).status()).toBe(200);
+  await request.delete("/api/admin/session");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Préparer les réservations", exact: true }).click();
@@ -221,7 +250,7 @@ test("la préparation du salon enregistre les consignes et valide un tarif par v
   // Restaurer les réglages de cette base temporaire pour les autres parcours.
   const login = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
   const headers = { Cookie: login.headers()["set-cookie"].split(";")[0] };
-  expect((await request.put("/api/admin/settings", { headers, data: { ...catalog.settings, reminderHours:24, bookingBufferMinutes:0, bookingInstructions:"" } })).status()).toBe(200);
+  expect((await request.put("/api/admin/settings", { headers, data: originalSettings })).status()).toBe(200);
 });
 
 test("la tâche de rappel exige son secret et son dernier passage apparaît dans la préparation", async ({ request }) => {

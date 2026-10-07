@@ -17,6 +17,8 @@ import { deliverNotifications } from "../src/lib/notifications";
 import { handlePaymentWebhook, checkoutSession, captureBookingPayment } from "../src/lib/payments";
 import { bookingReadiness } from "../src/lib/booking-readiness";
 import { depositPolicy, depositCancellationNotice } from "../src/lib/booking-policy";
+import { durationEstimates } from "../src/lib/duration-estimates";
+import { posterServices } from "../src/lib/poster-catalog";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
@@ -41,7 +43,7 @@ beforeEach(async () => {
 after(async () => { await closeDatabase(); await rm(directory, { recursive: true, force: true }); });
 
 test("le catalogue charge les catégories et les quatre produits fournis", async () => {
-  const catalog = await publicCatalog(); assert.ok(catalog.services.length > 60); assert.equal(catalog.products.length, 4); assert.equal(catalog.settings.address, initialSettings.address); assert.equal(catalog.settings.pricingApproved, false);
+  const catalog = await publicCatalog(); assert.ok(catalog.services.length > 60); assert.equal(catalog.products.length, 4); assert.equal(catalog.settings.address, initialSettings.address); assert.equal(catalog.settings.pricingApproved, true);
 });
 test("rouvrir la base conserve les réservations et le stock modifié", async () => {
   const saved = await createBooking(booking());
@@ -311,13 +313,62 @@ test("l’import Pinterest remplit les photos manquantes et conserve les modific
   await saveContent("services", imported); await closeDatabase();
   assert.equal((await one<Service>("services", imported.id))!.variants[0].image, "/images/fashion-original-4.jpg");
 });
-test("une durée non publiée n’est pas attribuée à Micro et ne peut pas réserver un créneau", async () => {
+test("Micro utilise une estimation identifiée qui bloque toute sa durée et respecte la fermeture", async () => {
   const service = (await one<Service>("services", "knotless"))!;
   const medium = service.variants.find(variant => variant.id === "1-2")!;
   const micro = service.variants.find(variant => variant.id === "3-1")!;
   assert.equal(durationIsEstimated(service, medium), false);
-  assert.equal(durationIsEstimated(service, micro), true); assert.equal(canBookVariant(service, micro), false);
-  await assert.rejects(availability("knotless", "3-1", future()), /confirmer/);
+  assert.equal(durationIsEstimated(service, micro), true); assert.equal(canBookVariant(service, micro), true);
+  assert.equal(micro.duration, 95); assert.equal(micro.referenceId, undefined);
+  const saved = await createBooking(booking({ variantId: "3-1", time: "10:00" }));
+  assert.equal(saved.end_time - saved.start_time, 95 * 60000);
+  assert.equal(saved.data.durationEstimated, true);
+  const slots = await availability("knotless", "3-1", future());
+  assert.ok(!slots.includes("11:00")); assert.ok(slots.includes("12:00"));
+  assert.ok(slots.includes("18:00")); assert.ok(!slots.includes("18:30"));
+  await assert.rejects(createBooking(booking({ variantId: "3-1", time: "18:30" })), /disponible/);
+  const messages = await (await db()).query<{ body: string }>("SELECT body FROM notifications WHERE booking_id=$1", [saved.id]);
+  assert.ok(messages.rows.every(message => message.body.includes("Durée : environ 1 h 35 min")));
+});
+test("les durées manquantes deviennent des estimations réservables sans modifier les prix", () => {
+  assert.equal(durationEstimates.length, 41);
+  for (const estimate of durationEstimates) {
+    const service = initialServices.find(item => item.id === estimate.serviceId)!;
+    const variant = service.variants.find(item => item.id === estimate.variantId)!;
+    const original = posterServices.find(item => item.id === service.id)!.variants.find(item => item.id === variant.id)!;
+    assert.equal(variant.price, original.price);
+    assert.equal(variant.referenceId, undefined);
+    assert.equal(durationIsEstimated(service, variant), true);
+    assert.equal(canBookVariant(service, variant), true);
+    assert.ok(variant.duration >= 75 && variant.duration <= 150);
+  }
+});
+test("la migration des estimations conserve les rendez-vous et les durées personnalisées puis ne se répète pas", async () => {
+  const saved = await createBooking(booking());
+  const service = (await one<Service>("services", "knotless"))!;
+  service.variants = service.variants.map(variant => variant.id === "3-1" ? { ...variant, duration:450, bookable:false, estimatedDuration:true } : variant);
+  await saveContent("services", service);
+  const custom = (await one<Service>("services", "boho-knotless"))!;
+  custom.variants[0] = { ...custom.variants[0], duration:125, bookable:false };
+  custom.active = false;
+  await saveContent("services", custom);
+  await (await db()).query("UPDATE inventory SET stock=7 WHERE product_id='bonnet'");
+  await (await db()).query("DELETE FROM migration_history WHERE id='fashion-duration-estimates-prices-approved-20261007'");
+  await closeDatabase();
+  const updated = (await one<Service>("services", "knotless"))!;
+  assert.equal(updated.variants.find(variant => variant.id === "3-1")!.duration, 95);
+  assert.equal(updated.variants.find(variant => variant.id === "3-1")!.bookable, true);
+  assert.equal((await one<Service>("services", custom.id))!.variants[0].duration, 125);
+  assert.equal((await one<Service>("services", custom.id))!.variants[0].bookable, false);
+  assert.equal((await one<Service>("services", custom.id))!.active, false);
+  assert.equal((await readBooking(saved.id, saved.token)).end_time, saved.end_time);
+  assert.equal((await publicCatalog()).products.find(product => product.id === "bonnet")!.stock, 7);
+  updated.variants.find(variant => variant.id === "3-1")!.duration = 120;
+  await saveContent("services", updated);
+  await saveSettings({ ...initialSettings, pricingApproved:false });
+  await closeDatabase();
+  assert.equal((await one<Service>("services", "knotless"))!.variants.find(variant => variant.id === "3-1")!.duration, 120);
+  assert.equal((await getSettings()).pricingApproved, false);
 });
 test("le catalogue complet migre une seule fois sans modifier les rendez-vous existants", async () => {
   const saved = await createBooking(booking());
@@ -482,11 +533,12 @@ test("la préparation distingue configuration, prix validés et tâche de rappel
   const service = structuredClone(initialServices.find(item => item.id === "knotless")!);
   service.variants[0].pricingVerified = false;
   const employees = [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }];
-  let ready = bookingReadiness([service], employees, initialSettings, null);
+  const settings = { ...initialSettings, pricingApproved: false };
+  let ready = bookingReadiness([service], employees, settings, null);
   assert.equal(ready.payment.configured, false); assert.equal(ready.email.configured, false); assert.equal(ready.reminders.recent, false); assert.equal(ready.team.genericResource, true);
   assert.ok(ready.catalog.items.some(item => item.variantId === service.variants[0].id && item.pricePending));
   service.variants[0].pricingVerified = true;
-  ready = bookingReadiness([service], employees, initialSettings, { at: Date.now(), configured: true, sent: 1, failed: 0 });
+  ready = bookingReadiness([service], employees, settings, { at: Date.now(), configured: true, sent: 1, failed: 0 });
   assert.equal(ready.reminders.recent, true);
   assert.equal(ready.catalog.items.some(item => item.variantId === service.variants[0].id && item.pricePending), false);
   assert.equal(bookingReadiness([service], employees, initialSettings, { at: Date.now(), configured: false, sent: 0, failed: 0 }).reminders.recent, false);

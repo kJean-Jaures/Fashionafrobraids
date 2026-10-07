@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { canBookVariant, type Service, type Product, type Employee } from "./catalog";
+import { canBookVariant, durationIsEstimated, type Service, type Product, type Employee } from "./catalog";
 import { db, transaction, all, one, getSettings, type Connection } from "./db";
 import { possibleSlots, timestamp, validDate } from "./time";
 import type { BookingInput, OrderInput } from "./validation";
@@ -16,6 +16,7 @@ export type BookingData = {
   price: number; duration: number; deposit: number; depositPaid: boolean; employee: string;
   paymentProvider?: "paypal"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
   depositPolicy?: typeof depositPolicy;
+  durationEstimated?: boolean;
 };
 export type Booking = { id: string; employee_id: string; start_time: number; end_time: number; status: "confirmed" | "cancelled" | "pending_payment"; expires_at: number | null; data: BookingData; created_at: number };
 export type OrderItem = { productId: string; name: string; quantity: number; price: number };
@@ -75,6 +76,7 @@ export async function createBooking(input: BookingInput) {
       if (!slot || await busy(connection, employee.id, slot.start, slot.end, "", settings.bookingBufferMinutes)) continue;
       const data: BookingData = { name: input.name, email: input.email, phone: input.phone, note: input.note, serviceId: service.id, service: service.name, variantId: selected.variant.id, size: selected.variant.size, length: selected.variant.length, options: selected.options.map(option => option.label), price: selected.price, duration: selected.duration, deposit: selected.deposit, depositPaid: false, employee: employee.name };
       if (selected.deposit) data.depositPolicy = depositPolicy;
+      data.durationEstimated = Boolean(durationIsEstimated(service, selected.variant, selected.options));
       const status = selected.deposit ? "pending_payment" : "confirmed";
       // Le créneau est retenu pendant le paiement, puis libéré sans paiement vérifié.
       const expiry = selected.deposit ? Date.now() + 35 * 60000 : null;
