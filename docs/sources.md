@@ -83,3 +83,10 @@ Les images sont téléchargées à l’identique depuis `i.pinimg.com`, sans ret
 Le propriétaire a validé les tarifs actuels et demandé de compléter les durées manquantes le 7 octobre 2026. Les 41 variantes concernées utilisent des estimations construites à partir des prestations proches du calendrier fourni, avec des suppléments de finesse, longueur et finitions. Elles portent la mention « environ » ; les 94 durées publiées restent inchangées. Voir `docs/durees-estimees.md` et `src/lib/duration-estimates.ts`. Ces estimations remplacent les anciennes durées provisoires de plusieurs heures et permettent la réservation en ligne après activation du paiement.
 
 Les fichiers photographiques restent inchangés. Les cadres du catalogue, des fiches, de la galerie et de sa visionneuse, des tarifs, du résumé de réservation et de la boutique utilisent un affichage complet sans coupe de l’image. Les légendes de galerie apparaissent sous les photos. Les cartes d’expertises de l’accueil adoptent aussi des cadres de portrait avec les légendes sous les photos ; les animations au défilement et au survol respectent la préférence de mouvement réduit.
+
+
+## Cadrages de l’accueil et animations — 7 octobre 2026
+
+À la demande du propriétaire, seuls les trois visuels `fashion-original-1.png`, `fashion-original-10.png` et `fashion-original-2.jpg` retrouvent leur présentation antérieure : remplissage du cadre, sans marge intérieure. Les fichiers photographiques restent les originaux. Les autres visuels gardent leur présentation complète.
+
+Les transitions de l’accueil, des titres et du menu mobile sont enrichies ; les boutons reçoivent un effet de lumière au survol. Une barre de progression et un lien « Retour en haut » accompagnent le défilement. Les animations respectent la préférence de mouvement réduit. La compilation de production et les 15 parcours navigateur ont réussi après correction du positionnement du bouton de réservation sur mobile.

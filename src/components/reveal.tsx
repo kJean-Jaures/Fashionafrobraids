@@ -2,7 +2,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
 
-export function Reveal({ children, className = "", stagger = false }: { children: ReactNode; className?: string; stagger?: boolean }) {
+export function Reveal({ children, className = "", stagger = false, effect = "rise" }: { children: ReactNode; className?: string; stagger?: boolean; effect?: "rise" | "fade" }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -17,10 +17,11 @@ export function Reveal({ children, className = "", stagger = false }: { children
       }
     }, { threshold: .08, rootMargin: "0px 0px -20px 0px" });
     targets.forEach((target, index) => {
+      (target as HTMLElement).dataset.revealEffect = effect;
       (target as HTMLElement).style.setProperty("--reveal-delay", `${stagger ? index % 4 * .06 : 0}s`);
       if (!target.classList.contains("reveal-entered")) observer.observe(target);
     });
     return () => observer.disconnect();
-  }, [children, reduced, stagger]);
+  }, [children, reduced, stagger, effect]);
   return <div ref={ref} className={className}>{children}</div>;
 }

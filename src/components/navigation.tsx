@@ -3,7 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Menu, X, ShoppingBag, ArrowUpRight, MapPin, Phone, Camera as Instagram, Download, CalendarDays } from "lucide-react";
+import { ReadingProgress } from "./reading-progress";
+import { Menu, ArrowUp, ShoppingBag, ArrowUpRight, MapPin, Phone, Camera as Instagram, Download, CalendarDays } from "lucide-react";
 import { useSite } from "./provider";
 import { Modal } from "./ui";
 import { CartDrawer } from "./shop";
@@ -13,14 +14,15 @@ const links = [["Accueil", "/"], ["Nos coiffures", "/coiffures"], ["Tarifs", "/t
 
 export function Header() {
   const { cart, setCartOpen, catalog } = useSite(); const path = usePathname();
-  const [open, setOpen] = useState(false); const [scrolled, setScrolled] = useState(false);
-  useEffect(() => { const onScroll = () => setScrolled(window.scrollY > 30); onScroll(); window.addEventListener("scroll", onScroll, { passive: true }); return () => window.removeEventListener("scroll", onScroll); }, []);
+  const [open, setOpen] = useState(false); const [scrolled, setScrolled] = useState(false); const [showTop, setShowTop] = useState(false);
+  const floatingBook = !path.startsWith("/reservation") && !path.startsWith("/admin");
+  useEffect(() => { const onScroll = () => { setScrolled(window.scrollY > 30); setShowTop(window.scrollY > 900); }; onScroll(); window.addEventListener("scroll", onScroll, { passive: true }); return () => window.removeEventListener("scroll", onScroll); }, []);
   useEffect(() => { setOpen(false); }, [path]);
   return <><a href="#contenu" className="skip-link">Aller au contenu</a><header className={`site-header ${path === "/" && !scrolled ? "over-hero" : ""}`}>
     <div className="header-inner"><Link href="/" aria-label="Fashion Afro Braids Paris — Accueil"><Logo/></Link><nav aria-label="Navigation principale" className="desktop-nav">{links.map(([label, href]) => <Link className={path === href ? "active" : ""} key={label} href={href}>{label}</Link>)}</nav>
     <div className="header-actions"><button className="icon-button cart-button" aria-label={`Ouvrir le panier, ${cart.reduce((s, i) => s + i.quantity, 0)} articles`} onClick={() => setCartOpen(true)}><ShoppingBag size={20}/>{cart.length > 0 && <span>{cart.reduce((s, i) => s + i.quantity, 0)}</span>}</button><Link href="/reservation" className="button primary header-book">Prendre rendez-vous <ArrowUpRight size={16}/></Link><button className="icon-button mobile-menu-button" onClick={() => setOpen(true)} aria-label="Ouvrir le menu" aria-expanded={open}><Menu size={25}/></button></div></div>
-  </header><Modal open={open} onClose={() => setOpen(false)} title="Fashion Afro Braids" className="navigation-modal"><nav aria-label="Navigation mobile">{links.map(([label, href]) => <Link key={label} href={href} onClick={() => setOpen(false)}>{label}<ArrowUpRight size={20}/></Link>)}<Link href="/mes-rendez-vous" onClick={() => setOpen(false)}>Mes rendez-vous <CalendarDays size={20}/></Link></nav><Link onClick={() => setOpen(false)} href="/reservation" className="button primary">Prendre rendez-vous</Link><a className="mobile-phone" href={`tel:${catalog.settings.phone.replace(/\s/g, "")}`}><Phone size={17}/>{catalog.settings.phone}</a></Modal><CartDrawer/>
-  {!path.startsWith("/reservation") && !path.startsWith("/admin") && <Link href="/reservation" className="mobile-book button primary"><CalendarDays size={18}/> Prendre rendez-vous <ArrowUpRight size={17}/></Link>}</>;
+  <ReadingProgress/></header>{showTop && <a href="#contenu" className={`back-to-top ${floatingBook ? "above-book" : ""}`} aria-label="Retour en haut" title="Retour en haut"><ArrowUp size={19}/></a>}<Modal open={open} onClose={() => setOpen(false)} title="Fashion Afro Braids" className="navigation-modal"><nav aria-label="Navigation mobile">{links.map(([label, href]) => <Link key={label} href={href} onClick={() => setOpen(false)}>{label}<ArrowUpRight size={20}/></Link>)}<Link href="/mes-rendez-vous" onClick={() => setOpen(false)}>Mes rendez-vous <CalendarDays size={20}/></Link></nav><Link onClick={() => setOpen(false)} href="/reservation" className="button primary">Prendre rendez-vous</Link><a className="mobile-phone" href={`tel:${catalog.settings.phone.replace(/\s/g, "")}`}><Phone size={17}/>{catalog.settings.phone}</a></Modal><CartDrawer/>
+  {floatingBook && <Link href="/reservation" className="mobile-book button primary"><CalendarDays size={18}/> Prendre rendez-vous <ArrowUpRight size={17}/></Link>}</>;
 }
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };

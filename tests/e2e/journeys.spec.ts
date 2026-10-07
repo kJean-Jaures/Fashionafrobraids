@@ -8,6 +8,14 @@ test("accueil, navigation mobile, galerie et absence de débordement", async ({ 
   await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
   await expect(page.locator(".hero-image img")).toHaveAttribute("src", /fashion-original-1/);
   await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
+  for (const selector of [".hero-image img", ".home-salon-main img", ".home-natural-photo img"]) {
+    const photo = page.locator(selector);
+    await photo.scrollIntoViewIfNeeded();
+    await expect(photo).toHaveCSS("object-fit", "cover");
+    await expect(photo).toHaveCSS("padding", "0px");
+    await expect.poll(() => photo.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  }
+  await expect(page.locator(".hero-secondary img")).toHaveCSS("object-fit", "contain");
   for (const [category, hairstyle] of [["Extensions", "bouclées"], ["Tissages & Perruques", "Tissage lisse"], ["Événementiel", "Chignon de cérémonie"]]) {
     const photo = page.locator(".expertise-card").filter({ has: page.getByRole("heading", { name: category, exact: true }) }).locator("img");
     await photo.scrollIntoViewIfNeeded();
@@ -44,9 +52,16 @@ test("l’accueil respecte les contrôles automatisés WCAG AA", async ({ page }
 test("les photos restent entières et les animations respectent la préférence de mouvement réduit", async ({ page }) => {
   await page.setViewportSize({width:390,height:844});
   await page.goto("/");
-  await expect(page.locator(".hero-visual")).toHaveCSS("animation-name", "hero-enter");
+  await expect(page.locator(".hero-visual")).toHaveCSS("animation-name", "hero-image-enter");
   await page.locator(".expertise-card").first().scrollIntoViewIfNeeded();
   await expect(page.locator(".expertise-card").first()).toHaveClass(/reveal-entered/);
+  const top = page.getByRole("link", {name:"Retour en haut"});
+  await expect(top).toBeVisible();
+  const mobileBook = page.locator(".mobile-book");
+  expect((await top.boundingBox())!.y + (await top.boundingBox())!.height).toBeLessThan((await mobileBook.boundingBox())!.y);
+  await top.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(150);
+  await expect(top).toHaveCount(0);
   await page.goto("/#galerie");
   await page.locator(".gallery-item").first().click();
   await expect(page.locator(".lightbox-photo img")).toHaveCSS("object-fit", "contain");
@@ -55,6 +70,9 @@ test("les photos restent entières et les animations respectent la préférence 
   await page.emulateMedia({reducedMotion:"reduce"});
   await page.goto("/");
   await expect(page.locator(".hero-visual")).toHaveCSS("animation-name", "none");
+  await page.getByRole("button",{name:"Ouvrir le menu"}).click();
+  await expect(page.getByRole("navigation",{name:"Navigation mobile"}).getByRole("link").first()).toHaveCSS("animation-name","none");
+  await page.keyboard.press("Escape");
   await page.goto("/coiffures/boho-knotless");
   await expect(page.locator(".detail-photo img")).toHaveCSS("object-fit", "contain");
   await expect(page.locator(".detail-price-row")).toContainText("1 h 35 min environ");
