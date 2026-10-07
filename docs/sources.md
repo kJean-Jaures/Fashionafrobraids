@@ -20,7 +20,7 @@ L’adresse, le téléphone, les catégories de prestations et les quatre prix p
 
 ## Affiche et logo fournis par le salon
 
-Le fichier `Grey Black Clean Minimalist Price List Fashion Brand Flyer A4 Document .pdf` (trois pages) et la photo jointe du logo ont été fournis par le propriétaire. Le logo original est conservé dans `public/images/logo-fashion-afro-braids.jpg`. Les icônes SVG incorporent cette même image sans modification de ses pixels.
+Le fichier `Grey Black Clean Minimalist Price List Fashion Brand Flyer A4 Document .pdf` (trois pages) et la photo jointe du logo ont été fournis par le propriétaire. Le logo original est conservé dans `public/images/logo-fashion-afro-braids.jpg`. Une version PNG avec transparence a été créée à la demande du propriétaire pour supprimer le fond blanc extérieur. Le cercle noir du logo est conservé. Le site utilise `logo-fashion-afro-braids.png` et les icônes SVG incorporent ce PNG sans rectangle de fond. Le fichier JPG original reste conservé comme source.
 
 Les 24 fichiers `poster-*.jpeg` sont les photographies extraites de cette affiche, sans retouche ni retrait de signatures. Elles sont présentées comme des visuels de l’affiche, sans leur attribuer une provenance photographique non vérifiée.
 

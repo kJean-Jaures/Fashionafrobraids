@@ -6,6 +6,7 @@
     "node": ">=24.0.0 <25"
   },
   "scripts": {
+    "local": "node scripts/local-preview.mjs",
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "postbuild": "node --liftoff-only --wasm-num-compilation-tasks=1 scripts/prepare-local-database.mjs",

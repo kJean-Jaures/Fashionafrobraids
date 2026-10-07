@@ -2,17 +2,40 @@
 
 Cette méthode fonctionne sur votre ordinateur Windows, macOS ou Linux. Elle ne nécessite aucun compte d'hébergement. Le site reste accessible tant que le terminal est ouvert.
 
-1. Installer **Node.js 24 LTS** depuis [nodejs.org](https://nodejs.org).
-2. Ouvrir [le projet sur GitHub](https://github.com/kJean-Jaures/Fashionafrobraids/tree/codex/fashion-afro-braids-preview), puis choisir **Code → Download ZIP** et décompresser le dossier.
-3. Ouvrir un terminal dans ce dossier, celui qui contient `package.json`, puis exécuter les commandes suivantes dans l'ordre :
+### Windows : ouvrir le site en double-cliquant
+
+1. Installer **Node.js 24 LTS** depuis [nodejs.org](https://nodejs.org). Une fois Node.js installé, fermer puis rouvrir le terminal si nécessaire.
+2. [Télécharger le projet en ZIP](https://github.com/kJean-Jaures/Fashionafrobraids/archive/refs/heads/codex/fashion-afro-braids-preview.zip), puis **extraire tout le dossier**. Ne pas lancer le fichier à l’intérieur de l’archive ZIP.
+3. Dans le dossier extrait qui contient `package.json`, double-cliquer sur **`Demarrer-le-site.cmd`**.
+4. Laisser la fenêtre ouverte. Le premier lancement installe les dépendances, prépare la configuration privée, démarre le serveur et **ouvre le vrai site dans le navigateur** lorsque le catalogue répond.
+
+Le lanceur affiche l’adresse locale du site. Cette adresse fonctionne **sur l’ordinateur où le fichier a été lancé**. Une adresse locale d’un serveur cloud ne permet pas d’ouvrir ce serveur depuis votre PC.
+
+Le lanceur active le mode démonstration : cet aperçu permet de parcourir le catalogue et les tarifs, utiliser le panier et ouvrir l’administration. La confirmation d’une réservation avec acompte attend une connexion PayPal sandbox ; aucun paiement réel n’est activé dans cet aperçu. Les données restent sur votre ordinateur.
+
+### macOS, Linux ou terminal Windows
+
+Ouvrir un terminal dans le dossier extrait, puis lancer :
+
+```bash
+npm run local
+```
+
+Node.js 24 est nécessaire. Cette commande prépare le projet, démarre le serveur et ouvre le navigateur. Elle réutilise un serveur Fashion Afro Braids déjà lancé sur le même port.
+
+Si un autre logiciel utilise le port 3000 :
+
+```bash
+npm run local -- --port=3001
+```
+
+Pour développer avec vos réglages habituels, les commandes manuelles restent disponibles :
 
 ```bash
 npm ci
 npm run setup
 npm run dev
 ```
-
-4. Attendre **Ready**, puis ouvrir sur ce même ordinateur l'adresse **Local** affichée par le terminal. Le catalogue, la réservation, la boutique et l'administration fonctionnent avec une base locale.
 
 Les modifications de développement apparaissent dans le navigateur. Pour arrêter le serveur, utiliser **Ctrl+C** dans le terminal.
 

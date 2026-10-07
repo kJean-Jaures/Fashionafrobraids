@@ -8,7 +8,7 @@ import { useSite } from "./provider";
 import { Modal } from "./ui";
 import { CartDrawer } from "./shop";
 
-export function Logo() { return <span className="brand"><Image className="brand-logo" src="/images/logo-fashion-afro-braids.jpg" alt="Logo original Fashion Afro Braids Paris" width={64} height={58} sizes="64px" loading="eager"/><span>FASHION <span className="brand-second">AFRO BRAIDS</span><small>PARIS</small></span></span>; }
+export function Logo() { return <span className="brand"><Image className="brand-logo" src="/images/logo-fashion-afro-braids.png" alt="Logo original Fashion Afro Braids Paris" width={64} height={58} sizes="64px" loading="eager"/><span>FASHION <span className="brand-second">AFRO BRAIDS</span><small>PARIS</small></span></span>; }
 const links = [["Accueil", "/"], ["Nos coiffures", "/coiffures"], ["Tarifs", "/tarifs"], ["Boutique", "/boutique"], ["À propos", "/a-propos"], ["Avis", "/#avis"], ["Contact", "/contact"]];
 
 export function Header() {

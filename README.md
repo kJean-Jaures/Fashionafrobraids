@@ -4,7 +4,7 @@ Site responsive et application web installable (PWA), créés à partir des cons
 
 Aperçus de la version développée : [ordinateur](docs/apercu-ordinateur.png) · [téléphone](docs/apercu-mobile.png) · [nouveaux tarifs](docs/apercu-tarifs.png) · [fiche Knotless](docs/apercu-coiffure.png).
 
-Pour ouvrir l'application directement depuis GitHub, suivre le [guide Codespaces](docs/apercu-github.md). Pour la lancer sur votre ordinateur sans hébergeur, suivre le [guide local](docs/apercu-local.md). Pour un lien public interactif, suivre le [guide Render](docs/apercu-en-ligne.md). Le fichier `render.yaml` prépare un aperçu avec un bandeau de démonstration et un mot de passe administrateur généré par l'hébergeur. Le premier déploiement Render a échoué par manque de mémoire ; la correction est testée sous 512 Mio et le déploiement public doit être relancé.
+Pour ouvrir l'application directement depuis GitHub, suivre le [guide Codespaces](docs/apercu-github.md). Pour ouvrir le vrai site sur votre ordinateur, télécharger et extraire le projet puis double-cliquer sur **Demarrer-le-site.cmd** sous Windows (Node.js 24 requis). Sur macOS/Linux, lancer **npm run local**. Voir le [guide local](docs/apercu-local.md). Pour un lien public interactif, suivre le [guide Render](docs/apercu-en-ligne.md). Le fichier `render.yaml` prépare un aperçu avec un bandeau de démonstration et un mot de passe administrateur généré par l'hébergeur. Le premier déploiement Render a échoué par manque de mémoire ; la correction est testée sous 512 Mio et le déploiement public doit être relancé.
 
 ## Démarrage
 
