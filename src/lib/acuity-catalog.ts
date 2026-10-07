@@ -2,6 +2,7 @@ import appointments from "./reference-data/goodhair-appointments.json";
 import gallery from "./reference-data/goodhair-gallery.json";
 import type { GalleryPhoto, Service, Variant } from "./catalog";
 import { referencePhotos } from "./reference-photos";
+import { retiredServiceIds, retiredReferenceIds, retiredGalleryIds } from "./catalogue-selection";
 
 export const referenceAppointments = appointments;
 export const missingPhoto = "/images/photo-a-ajouter.svg";
@@ -64,7 +65,7 @@ const definitions: Definition[] = [
 ];
 const knotlessVariantIds: Record<number, string> = { 85575979: "1-1", 85576107: "1-2", 85576228: "2-1", 85576278: "2-2" };
 export function withAcuityCatalogue(existing: Service[], provisionalIds: string[]): Service[] {
-  const output = new Map(existing.map(service => [service.id, service]));
+  const output = new Map(existing.filter(service => !retiredServiceIds.includes(service.id)).map(service => [service.id, service]));
   const mapped = new Set(definitions.map(definition => definition.id));
   for (const service of existing) {
     if (mapped.has(service.id)) continue;
@@ -72,6 +73,7 @@ export function withAcuityCatalogue(existing: Service[], provisionalIds: string[
     else if (provisionalIds.includes(service.id) && /\/(hero|gallery)\.webp/.test(service.image)) output.set(service.id, { ...service, active: false });
   }
   for (const definition of definitions) {
+    if (retiredServiceIds.includes(definition.id)) continue;
     const current = output.get(definition.id);
     const variants: Variant[] = definition.ids.map((sourceId, index) => {
       const source = appointments.find(appointment => appointment.id === sourceId)!;
@@ -99,7 +101,7 @@ export function withAcuityCatalogue(existing: Service[], provisionalIds: string[
   }
   return [...output.values()];
 }
-export const acuityGallery: GalleryPhoto[] = appointments.filter(appointment => appointment.sourceImage).map(appointment => {
+export const acuityGallery: GalleryPhoto[] = appointments.filter(appointment => appointment.sourceImage && !retiredReferenceIds.includes(appointment.id)).map(appointment => {
   const definition = definitions.find(definition => definition.ids.includes(appointment.id))!;
   const title = `${definition.name} · ${appointment.name}`;
   return { id: `acuity-${appointment.id}`, title: title.length > 120 ? appointment.name : title, category: definition.category, image: appointment.image, position: "center", active: true, illustrative: false };
@@ -107,4 +109,4 @@ export const acuityGallery: GalleryPhoto[] = appointments.filter(appointment => 
 export const completeReferenceGallery: GalleryPhoto[] = [...acuityGallery, ...gallery.map((photo, index) => ({
   id: photo.id, title: referencePhotos.find(reference => reference.source === photo.sourceImage)?.title || photo.title.slice(0, 120), category: index >= 3 ? "Galerie" : "Présentation", image: photo.image, position: "center", active: true,
   illustrative: /Firefly|freepik|Plan\+de\+travail|Prestation\+coiffure/.test(photo.sourceImage),
-}))];
+}))].filter(photo => !retiredGalleryIds.includes(photo.id));

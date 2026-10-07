@@ -1,11 +1,12 @@
 import { posterServices } from "./poster-catalog";
 import { referenceGallery, withReferencePhoto } from "./reference-photos";
 import { completeReferenceGallery, withAcuityCatalogue } from "./acuity-catalog";
-export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string; imageSource?: string; referenceId?: string; estimatedDuration?: boolean; pricingVerified?: boolean; bookable?: boolean };
+import { withPinterestPhotos } from "./pinterest-service-photos";
+export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string; imageSource?: string; imageLink?: string; referenceId?: string; estimatedDuration?: boolean; pricingVerified?: boolean; bookable?: boolean };
 export type Extra = { id: string; label: string; price: number; duration: number; exclusiveGroup?: string; estimatedDuration?: boolean };
 export type Deposit = { type: "none" | "percent" | "fixed"; value: number };
 export type Service = {
-  id: string; name: string; category: string; description: string; image: string; imageSource?: string;
+  id: string; name: string; category: string; description: string; image: string; imageSource?: string; imageLink?: string;
   active: boolean; quoteOnly: boolean; hairIncluded: boolean; estimatedDuration: boolean; pricingVerified?: boolean;
   variants: Variant[]; options: Extra[]; deposit: Deposit;
   referenceCatalog?: boolean; bookingEnabled?: boolean; choiceLabel?: string; hairNote?: string;
@@ -86,7 +87,7 @@ const provisionalServices: Service[] = [braid("knotless", "Knotless Braids", "Kn
   return item;
 }))];
 export const provisionalServiceIds = provisionalServices.map(service => service.id).filter(id => !posterServices.some(service => service.id === id));
-export const initialServices: Service[] = withAcuityCatalogue([...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto), provisionalServiceIds);
+export const initialServices: Service[] = withAcuityCatalogue([...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto), provisionalServiceIds).map(withPinterestPhotos);
 export const initialProducts: Product[] = [
   { id: "bonnet", name: "Bonnet en satin", category: "Accessoires", description: "Un essentiel tout doux pour protéger votre coiffure pendant la nuit.", price: 1000, stock: 0, image: "/images/bonnet-current.webp", size: "Modèles et disponibilité à confirmer", active: true },
   { id: "perruque", name: "Perruque", category: "Perruques", description: "Choisissez votre nouvelle allure. Modèles et caractéristiques à préciser avec le salon.", price: 10000, stock: 0, image: "/images/wig-current.webp", size: "Modèle à préciser", active: true },

@@ -7,6 +7,8 @@ import { posterServices } from "./poster-catalog";
 import { referenceGallery, withReferencePhoto } from "./reference-photos";
 import { completeReferenceGallery, withAcuityCatalogue } from "./acuity-catalog";
 import { catalogueVersion } from "./catalogue-version.mjs";
+import { retiredServiceIds, retiredGalleryIds } from "./catalogue-selection";
+import { withPinterestPhotos } from "./pinterest-service-photos";
 import { paypalConfigured } from "./paypal-config";
 import { initialServices, provisionalServiceIds, initialProducts, initialSettings, initialGallery, starterGallery, initialReviews, type Service, type Product, type Settings, type Employee, type GalleryPhoto, type Review } from "./catalog";
 
@@ -46,6 +48,8 @@ async function initialise(connection: Connection) {
     await migratePoster(connection);
     await migrateReferencePhotos(connection);
     await migrateFullCatalogue(connection);
+    await migrateCatalogueSelection(connection);
+    await migratePinterestPhotos(connection);
     return;
   }
   for (const [collection, values] of Object.entries({ services: initialServices, products: initialProducts, gallery: initialGallery, reviews: initialReviews, employees: [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }] })) {
@@ -57,6 +61,24 @@ async function initialise(connection: Connection) {
   await migratePoster(connection);
   await migrateReferencePhotos(connection);
   await migrateFullCatalogue(connection);
+  await migrateCatalogueSelection(connection);
+  await migratePinterestPhotos(connection);
+}
+async function migratePinterestPhotos(connection: Connection) {
+  await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
+  if ((await connection.query("SELECT id FROM migration_history WHERE id='pinterest-photos-20261007'")).rows.length) return;
+  for (const service of await all<Service>("services", connection)) {
+    const updated = withPinterestPhotos(service);
+    if (updated !== service) await connection.query("UPDATE content SET data=$2::jsonb WHERE collection='services' AND id=$1", [service.id, JSON.stringify(updated)]);
+  }
+  await connection.query("INSERT INTO migration_history(id) VALUES('pinterest-photos-20261007')");
+}
+async function migrateCatalogueSelection(connection: Connection) {
+  await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
+  if ((await connection.query("SELECT id FROM migration_history WHERE id='fashion-catalogue-selection-20261007'")).rows.length) return;
+  for (const id of retiredServiceIds) await connection.query("DELETE FROM content WHERE collection='services' AND id=$1", [id]);
+  for (const id of retiredGalleryIds) await connection.query("DELETE FROM content WHERE collection='gallery' AND id=$1", [id]);
+  await connection.query("INSERT INTO migration_history(id) VALUES('fashion-catalogue-selection-20261007')");
 }
 async function migrateFullCatalogue(connection: Connection) {
   await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");

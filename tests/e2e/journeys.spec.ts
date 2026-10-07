@@ -6,7 +6,7 @@ import sharp from "sharp";
 test("accueil, navigation mobile, galerie et absence de débordement", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/");
   await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
-  await expect(page.locator(".hero-image img")).toHaveAttribute("src", /acuity-85576228/);
+  await expect(page.locator(".hero-image img")).toHaveAttribute("src", /fashion-original-1/);
   await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Ouvrir le menu" }).click(); await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("link", { name: "Nos coiffures" }).click();
@@ -16,8 +16,8 @@ test("accueil, navigation mobile, galerie et absence de débordement", async ({ 
 
 test("les photos du catalogue fourni sont associées à la bonne prestation et à la réservation", async ({ page, request }) => {
   const catalog = await (await request.get("/api/catalog")).json();
-  expect(catalog.gallery).toHaveLength(72);
-  for (const [id, imageId] of [["knotless", "85575979"], ["twists-homme", "85579289"], ["coupe-homme", "85579143"]]) {
+  expect(catalog.gallery).toHaveLength(63);
+  for (const [id, imageId] of [["knotless", "85575979"], ["twists-homme", "85579289"], ["cornrows-homme", "85579164"]]) {
     const service = catalog.services.find((item: { id: string }) => item.id === id);
     await page.goto(`/coiffures/${id}`);
     const photo = page.locator(".detail-photo img");
@@ -33,6 +33,36 @@ test("les photos du catalogue fourni sont associées à la bonne prestation et �
 
 test("l’accueil respecte les contrôles automatisés WCAG AA", async ({ page }) => {
   await page.goto("/"); const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze(); expect(result.violations).toEqual([]);
+});
+test("les prestations retirées ne sont plus proposées ni accessibles directement", async ({ page, request }) => {
+  const catalog = await (await request.get("/api/catalog")).json();
+  for (const id of ["barber-contours", "coupe-homme", "coupe-a-sec", "coupe-pointes"]) {
+    expect(catalog.services.some((service: { id: string }) => service.id === id)).toBe(false);
+    expect((await request.get(`/coiffures/${id}`)).status()).toBe(404);
+    const availability = await request.get(`/api/availability?service=${id}&variant=legacy&date=${addDays(parisDate(), 5)}`);
+    expect(availability.status()).toBe(400);
+    expect(await availability.json()).toEqual({ error: "Cette prestation n’existe pas." });
+  }
+  await page.goto("/coiffures?categorie=Hommes");
+  await expect(page.getByRole("heading", { name: "Vanilles homme", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dégradé & barbe", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Contours", exact: true })).toHaveCount(0);
+});
+test("les photos Pinterest complètent les fiches et la réservation avec leur source", async ({ page, request }) => {
+  const catalog = await (await request.get("/api/catalog")).json();
+  for (const id of ["tissage-ouvert", "microlocks", "lissage"]) {
+    const service = catalog.services.find((item: { id: string }) => item.id === id);
+    const variant = service.variants[0];
+    await page.goto(`/coiffures/${id}`);
+    const photo = page.locator(".detail-photo img");
+    await expect(photo).toHaveAttribute("src", /pinterest-/);
+    await expect.poll(() => photo.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(page.locator(".image-note")).toContainText("Photo d’inspiration · Pinterest");
+    await expect(page.getByRole("link", { name: "Voir l’inspiration sur Pinterest" })).toHaveAttribute("href", variant.imageLink);
+    await page.getByRole("link", { name: "Réserver cette coiffure" }).click();
+    await expect(page.locator(".summary-photo img")).toHaveAttribute("src", /pinterest-/);
+    await expect(page.locator(".summary-row").filter({ hasText: "Acompte" })).toContainText("10");
+  }
 });
 test("photos par variante, durée réelle et horaires de réservation", async ({ page }) => {
   await page.goto("/coiffures/knotless");

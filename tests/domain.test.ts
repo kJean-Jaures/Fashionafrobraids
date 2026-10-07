@@ -7,6 +7,8 @@ import { randomUUID } from "node:crypto";
 import { db, closeDatabase, one, publicCatalog } from "../src/lib/db";
 import { initialSettings, initialServices, canBookVariant, durationIsEstimated, priceIsVerified, type Service } from "../src/lib/catalog";
 import { referenceAppointments } from "../src/lib/acuity-catalog";
+import { retiredServiceIds, retiredReferenceIds, retiredGalleryIds } from "../src/lib/catalogue-selection";
+import { pinterestPhotoLabel, pinterestPhotos } from "../src/lib/pinterest-service-photos";
 import { availability, createBooking, readBooking, cancelBooking, createOrder, readOrder, updateOrder, createBlock, moveBooking, selection } from "../src/lib/domain";
 import { saveContent, removeContent, saveSettings } from "../src/lib/admin";
 import { addDays, parisDate, timestamp, localTimeToEpoch } from "../src/lib/time";
@@ -217,13 +219,13 @@ test("les suppléments de volume boho sont exclusifs et les boucles coûtent 5 �
   assert.equal(selection(service, "medium-1", ["curls", "beads", "volume-2x"]).price, 9000);
   assert.throws(() => selection(service, "medium-1", ["volume-2x", "volume-3x"]), /un seul/);
 });
-test("les 100 variantes du catalogue public reprennent exactement leurs durées et leurs images", () => {
+test("les variantes retenues du catalogue public reprennent leurs durées et leurs images", () => {
   const variants = initialServices.filter(service => service.active).flatMap(service => service.variants);
-  assert.equal(new Set(variants.map(variant => variant.referenceId).filter(Boolean)).size, 100);
-  for (const source of referenceAppointments) {
+  assert.equal(new Set(variants.map(variant => variant.referenceId).filter(Boolean)).size, 94);
+  for (const source of referenceAppointments.filter(source => !retiredReferenceIds.includes(source.id))) {
     const imported = variants.filter(variant => variant.referenceId === String(source.id));
     assert.ok(imported.length > 0);
-    for (const variant of imported) { assert.equal(variant.duration, source.duration); assert.equal(variant.image, source.image); assert.equal(variant.estimatedDuration, false); }
+    for (const variant of imported) { assert.equal(variant.duration, source.duration); if (source.sourceImage) assert.equal(variant.image, source.image); else { assert.ok(variant.imageLink?.startsWith("https://www.pinterest.com/pin/")); assert.notEqual(variant.image, source.image); } assert.equal(variant.estimatedDuration, false); }
   }
 });
 test("les Knotless Medium réservent 65 minutes et ne dépassent pas la fermeture à 20 h", async () => {
@@ -236,6 +238,57 @@ test("les Knotless Medium réservent 65 minutes et ne dépassent pas la fermetur
   assert.ok(slots.includes("18:30")); assert.ok(!slots.includes("19:00")); assert.ok(!slots.includes("20:00"));
   await assert.rejects(createBooking(booking({ time: "19:00" })), /disponible/);
   const last = await createBooking(booking({ time: "18:30" })); assert.equal(last.end_time, timestamp(future(), "19:35"));
+});
+test("les prestations retirées disparaissent sans effacer leurs rendez-vous historiques", async () => {
+  const legacy = { ...structuredClone(initialServices.find(service => service.id === "cornrows-homme")!), id: "coupe-homme", name: "Dégradé & barbe", options: [], deposit: { type: "none" as const, value: 0 } };
+  await saveContent("services", legacy);
+  const saved = await createBooking(booking({ serviceId: legacy.id, variantId: legacy.variants[0].id }));
+  await (await db()).query("DELETE FROM migration_history WHERE id='fashion-catalogue-selection-20261007'");
+  await closeDatabase();
+  const catalog = await publicCatalog();
+  for (const id of retiredServiceIds) assert.equal(await one("services", id), undefined);
+  assert.ok(catalog.gallery.every(photo => !retiredGalleryIds.includes(photo.id)));
+  const history = await readBooking(saved.id, saved.token);
+  assert.equal(history.data.service, "Dégradé & barbe");
+  assert.equal(history.start_time, saved.start_time); assert.equal(history.end_time, saved.end_time);
+  await assert.rejects(availability("coupe-homme", legacy.variants[0].id, future()), /prestation/i);
+  await closeDatabase(); assert.equal(await one("services", "coupe-homme"), undefined);
+});
+test("les variantes sans photo utilisent une inspiration Pinterest identifiée", () => {
+  const variants = initialServices.filter(service => service.active).flatMap(service => service.variants);
+  assert.ok(variants.every(variant => variant.image && variant.image !== "/images/photo-a-ajouter.svg"));
+  const inspirations = variants.filter(variant => variant.imageLink);
+  assert.equal(inspirations.length, 41);
+  for (const variant of inspirations) {
+    assert.equal(variant.imageSource, pinterestPhotoLabel);
+    assert.ok(pinterestPhotos.some(photo => photo.pin === variant.imageLink && photo.image === variant.image));
+  }
+});
+test("l’import Pinterest remplit les photos manquantes et conserve les modifications du salon", async () => {
+  const historical = await createBooking(booking());
+  const service = (await one<Service>("services", "tissage-ouvert"))!;
+  service.image = "/images/photo-a-ajouter.svg"; service.imageLink = undefined;
+  service.variants[0] = { ...service.variants[0], image: service.image, imageLink: undefined, price: 12500, duration: 120 };
+  service.deposit = { type: "fixed", value: 1000 }; service.active = false;
+  await saveContent("services", service);
+  const custom = (await one<Service>("services", "curly-soin"))!;
+  custom.image = "/images/fashion-original-8.jpg"; custom.imageLink = undefined;
+  custom.variants = custom.variants.map(variant => ({ ...variant, image: custom.image, imageLink: undefined, imageSource: "Photo du salon" }));
+  await saveContent("services", custom);
+  const storedCustom = (await one<Service>("services", custom.id))!;
+  await (await db()).query("UPDATE inventory SET stock=7 WHERE product_id='bonnet'");
+  await (await db()).query("DELETE FROM migration_history WHERE id='pinterest-photos-20261007'");
+  await closeDatabase();
+  const imported = (await one<Service>("services", service.id))!;
+  assert.ok(imported.variants[0].imageLink?.startsWith("https://www.pinterest.com/pin/"));
+  assert.equal(imported.variants[0].price, 12500); assert.equal(imported.variants[0].duration, 120);
+  assert.deepEqual(imported.deposit, service.deposit); assert.equal(imported.active, false);
+  assert.deepEqual((await one<Service>("services", custom.id))!.variants, storedCustom.variants);
+  assert.equal((await publicCatalog()).products.find(product => product.id === "bonnet")!.stock, 7);
+  assert.equal((await readBooking(historical.id, historical.token)).end_time, historical.end_time);
+  imported.variants[0].image = "/images/fashion-original-4.jpg"; imported.variants[0].imageLink = undefined;
+  await saveContent("services", imported); await closeDatabase();
+  assert.equal((await one<Service>("services", imported.id))!.variants[0].image, "/images/fashion-original-4.jpg");
 });
 test("une durée non publiée n’est pas attribuée à Micro et ne peut pas réserver un créneau", async () => {
   const service = (await one<Service>("services", "knotless"))!;
