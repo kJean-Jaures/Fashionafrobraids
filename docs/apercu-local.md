@@ -24,4 +24,6 @@ Les stocks commencent à zéro : renseigner un stock de test dans l'administrati
 
 GitHub héberge le code source. **GitHub Pages** peut publier un site statique, mais ne peut pas exécuter le serveur Next.js, les API de réservation et la base de données de ce projet.
 
+**GitHub Codespaces** permet de lancer toute l'application directement dans le navigateur, sans installation sur votre ordinateur. Suivre [le guide Codespaces](apercu-github.md).
+
 Pour un lien public vers l'application complète, suivre [l'aperçu Render](apercu-en-ligne.md). Le service est relié au dépôt GitHub : après une correction du code, il suffit de déployer le dernier commit depuis Render.
