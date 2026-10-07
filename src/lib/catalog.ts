@@ -1,9 +1,10 @@
 import { posterServices } from "./poster-catalog";
-export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string };
+import { referenceGallery, withReferencePhoto } from "./reference-photos";
+export type Variant = { id: string; size: string; length: string; price: number; duration: number; image?: string; imageSource?: string };
 export type Extra = { id: string; label: string; price: number; duration: number; exclusiveGroup?: string };
 export type Deposit = { type: "none" | "percent" | "fixed"; value: number };
 export type Service = {
-  id: string; name: string; category: string; description: string; image: string;
+  id: string; name: string; category: string; description: string; image: string; imageSource?: string;
   active: boolean; quoteOnly: boolean; hairIncluded: boolean; estimatedDuration: boolean; pricingVerified?: boolean;
   variants: Variant[]; options: Extra[]; deposit: Deposit;
 };
@@ -82,14 +83,14 @@ const provisionalServices: Service[] = [braid("knotless", "Knotless Braids", "Kn
   if (category === "Enfants") item.variants = ["0–5 ans", "6–12 ans", "13–17 ans"].map((size, index) => ({ ...item.variants[0], id: String(index), size }));
   return item;
 }))];
-export const initialServices: Service[] = [...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))];
+export const initialServices: Service[] = [...posterServices, ...provisionalServices.filter(item => !posterServices.some(poster => poster.id === item.id))].map(withReferencePhoto);
 export const initialProducts: Product[] = [
   { id: "bonnet", name: "Bonnet en satin", category: "Accessoires", description: "Un essentiel tout doux pour protéger votre coiffure pendant la nuit.", price: 1000, stock: 0, image: "/images/bonnet-current.webp", size: "Modèles et disponibilité à confirmer", active: true },
   { id: "perruque", name: "Perruque", category: "Perruques", description: "Choisissez votre nouvelle allure. Modèles et caractéristiques à préciser avec le salon.", price: 10000, stock: 0, image: "/images/wig-current.webp", size: "Modèle à préciser", active: true },
   { id: "meches", name: "Mèches", category: "Mèches", description: "Pour accompagner votre prochaine coiffure. Longueurs et coloris à préciser.", price: 500, stock: 0, image: "/images/extensions-current.webp", size: "Coloris et longueur à préciser", active: true },
   { id: "perles", name: "Perles pour cheveux", category: "Accessoires", description: "La touche finale pour personnaliser vos tresses.", price: 500, stock: 0, image: "/images/beads-current.webp", size: "Conditionnement à préciser", active: true }
 ];
-export const initialGallery: GalleryPhoto[] = [
+export const starterGallery: GalleryPhoto[] = [
   { id: "inspiration-knotless", title: "Knotless, naturellement", category: "Knotless", image: "/images/hero.webp", position: "center", active: true, illustrative: true },
   { id: "inspiration-cornrows", title: "La précision des cornrows", category: "Cornrows", image: "/images/gallery.webp", position: "left", active: true, illustrative: true },
   { id: "inspiration-boho", title: "L’esprit boho", category: "Braids", image: "/images/gallery.webp", position: "center", active: true, illustrative: true },
@@ -97,6 +98,7 @@ export const initialGallery: GalleryPhoto[] = [
   { id: "salon-current", title: "Ambiance du salon · visuel du site actuel", category: "Salon", image: "/images/salon-current.webp", position: "center", active: true, illustrative: true },
   { id: "texture-current", title: "Textures & caractère", category: "Extensions", image: "/images/texture-current.webp", position: "center", active: true, illustrative: true }
 ];
+export const initialGallery: GalleryPhoto[] = [...referenceGallery, ...starterGallery.map(photo => ({ ...photo, active: false }))];
 // Témoignages repris du site public le 7 octobre 2026. Aucune note numérique n’est publiée sur la source.
 export const initialReviews: Review[] = [
   { id: "lea-kim", name: "Léa Kim", text: "Salon très propre et récent, ce qui est agréable. Les coiffures sont exécutées très rapidement puisque la coiffeuse est toujours accompagnée d’une autre pour tresser une seule personne.", rating: 0, active: true },

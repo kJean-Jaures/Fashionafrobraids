@@ -6,11 +6,29 @@ import sharp from "sharp";
 test("accueil, navigation mobile, galerie et absence de débordement", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/");
   await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
+  await expect(page.locator(".hero-image img")).toHaveAttribute("src", /reference-spiral-cornrows/);
   await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Ouvrir le menu" }).click(); await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("link", { name: "Nos coiffures" }).click();
-  await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.getByRole("button", { name: "Voir Knotless, naturellement" }).click();
+  await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.getByRole("button", { name: "Voir Spiral cornrows" }).click();
   await expect(page.getByRole("dialog")).toBeVisible(); await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).not.toBeVisible();
+});
+
+test("les photos du catalogue fourni sont associées à la bonne prestation et à la réservation", async ({ page, request }) => {
+  const catalog = await (await request.get("/api/catalog")).json();
+  expect(catalog.gallery.every((photo: { illustrative: boolean }) => !photo.illustrative)).toBe(true);
+  for (const id of ["spiral-cornrows", "twists-homme", "coupe-homme"]) {
+    const service = catalog.services.find((item: { id: string }) => item.id === id);
+    await page.goto(`/coiffures/${id}`);
+    const photo = page.locator(".detail-photo img");
+    await expect(photo).toHaveAttribute("src", new RegExp(`reference-${id}`));
+    await expect(page.locator(".image-note")).toHaveText("Photo du catalogue fourni par le salon");
+    await expect.poll(() => photo.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await page.getByRole("link", { name: "Réserver cette coiffure" }).click();
+    await expect(page.locator(".summary-photo img")).toHaveAttribute("src", new RegExp(`reference-${id}`));
+    await expect(page.locator(".summary-row").filter({ hasText: "Acompte" })).toHaveText(/10/);
+    expect(service.variants.every((variant: { image: string }) => variant.image === service.image)).toBe(true);
+  }
 });
 
 test("l’accueil respecte les contrôles automatisés WCAG AA", async ({ page }) => {

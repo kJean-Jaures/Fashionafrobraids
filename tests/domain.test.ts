@@ -212,6 +212,29 @@ test("les suppléments de volume boho sont exclusifs et les boucles coûtent 5 �
   assert.equal(selection(service, "medium-1", ["curls", "beads", "volume-2x"]).price, 9000);
   assert.throws(() => selection(service, "medium-1", ["volume-2x", "volume-3x"]), /un seul/);
 });
+test("l’import des photos conserve tarifs, durées, acompte et historique puis respecte les modifications admin", async () => {
+  const saved = await createBooking(booking());
+  const original = (await one<Service>("services", "spiral-cornrows"))!;
+  const edited = structuredClone(original);
+  edited.image = "/images/poster-spiral-cornrows.jpeg";
+  edited.variants = edited.variants.map(variant => ({ ...variant, image: edited.image, duration: 195, price: 6800 }));
+  edited.deposit = { type: "fixed", value: 1000 }; edited.active = false;
+  await saveContent("services", edited);
+  await (await db()).query("DELETE FROM migration_history WHERE id='reference-photos-20261007'");
+  await closeDatabase();
+  const imported = (await one<Service>("services", "spiral-cornrows"))!;
+  assert.equal(imported.image, "/images/reference-spiral-cornrows.jpeg");
+  assert.ok(imported.variants.every(variant => variant.image === imported.image && variant.duration === 195 && variant.price === 6800));
+  assert.equal(imported.active, false); assert.deepEqual(imported.deposit, edited.deposit);
+  assert.equal((await readBooking(saved.id, saved.token)).end_time, saved.end_time);
+  imported.image = "/images/poster-spiral-cornrows.jpeg";
+  imported.variants[0].duration = 210;
+  await saveContent("services", imported); await closeDatabase();
+  const reopened = (await one<Service>("services", "spiral-cornrows"))!;
+  assert.equal(reopened.image, imported.image); assert.equal(reopened.variants[0].duration, 210);
+  assert.equal(reopened.imageSource, original.imageSource);
+  await saveContent("services", original);
+});
 test("l’import de l’affiche conserve l’historique et les futures modifications admin", async () => {
   const saved = await createBooking(booking());
   const connection = await db();

@@ -27,3 +27,17 @@ Les 24 fichiers `poster-*.jpeg` sont les photographies extraites de cette affich
 Les tarifs ont été relevés sur les pages rendues : le PDF contient aussi des couches textuelles masquées qui ne correspondent pas toutes à la page visible. Seul le contenu visible a été retenu. Les 17 familles, leurs variantes et les quatre suppléments sont enregistrés dans `src/lib/poster-catalog.ts`, puis importés en base lors d’une migration unique. L’intitulé « Fulani TRIAL Knotless » de l’affiche est normalisé en « Fulani Tribal Knotless ». Les longueurs indiquées pour « Fulani motifs Bob » sont conservées telles qu’affichées.
 
 Aucune durée ne figure sur l’affiche : les durées restent estimées et administrables. Le supplément boho 2× et le supplément 3× sont exclusifs. Aucune longueur ni aucun tarif absent de l’affiche n’est ajouté aux styles identifiés comme vérifiés.
+
+## Catalogue Good Hair Family fourni par le propriétaire
+
+Pages consultées le 7 octobre 2026 :
+
+- https://www.goodhairfamily.fr/rendezvous-5
+- https://www.goodhairfamily.fr/carte-des-services
+- https://www.goodhairfamily.fr/galerie
+
+Quatre photographies de la galerie ont été téléchargées à l’identique, sans retouche. Les adresses originales et les correspondances se trouvent dans `src/lib/reference-photos.ts`. La photographie décrite sur la source comme « Spiral conrows simple » est associée à Spiral Cornrows ; les vanilles homme à Twists homme ; la photographie de la coupe masculine à Coupe homme. Les torsades avec motif restent dans la galerie, sans être attribuées à une variante précise non identifiée. Les images nommées Firefly et Freepik de la galerie ne sont pas importées comme photographies réelles.
+
+Une migration unique met à jour les visuels des trois prestations et de leurs variantes, ajoute les quatre photos à la galerie et masque les anciens visuels de galerie inchangés. Elle conserve les prix, durées, acomptes, statuts et rendez-vous existants. Les modifications ultérieures de l’administration restent intactes. Les tarifs de l’affiche et l’acompte de 10 € sont conservés.
+
+Le bloc de réservation Squarespace utilise Acuity, avec l’identifiant public `37488085`. Le script officiel du composant construit le calendrier à l’adresse `https://app.acuityscheduling.com/schedule.php?owner=37488085&ref=sched_block`. L’URL `squarespace-example-fr.as.me` présente dans les attributs du bloc correspond à une démonstration, et ne constitue pas une source de durées pour ce salon. L’accès au calendrier réel reste à vérifier : aucune durée réelle n’a encore été importée. Les durées existantes restent explicitement estimées. Les coordonnées et horaires d’ouverture de Good Hair Family ne remplacent pas ceux de Fashion Afro Braids.

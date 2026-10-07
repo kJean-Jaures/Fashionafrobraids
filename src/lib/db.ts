@@ -4,8 +4,9 @@ import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { localPostgresOptions } from "./local-postgres-options.mjs";
 import { posterServices } from "./poster-catalog";
+import { referenceGallery, withReferencePhoto } from "./reference-photos";
 import { paypalConfigured } from "./paypal-config";
-import { initialServices, initialProducts, initialSettings, initialGallery, initialReviews, type Service, type Product, type Settings, type Employee, type GalleryPhoto, type Review } from "./catalog";
+import { initialServices, initialProducts, initialSettings, initialGallery, starterGallery, initialReviews, type Service, type Product, type Settings, type Employee, type GalleryPhoto, type Review } from "./catalog";
 
 export type Collection = "services" | "products" | "employees" | "gallery" | "reviews";
 export interface Connection { query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }> }
@@ -41,6 +42,7 @@ async function initialise(connection: Connection) {
       await connection.query("INSERT INTO migration_history(id) VALUES('site-import-20261007') ON CONFLICT DO NOTHING");
     }
     await migratePoster(connection);
+    await migrateReferencePhotos(connection);
     return;
   }
   for (const [collection, values] of Object.entries({ services: initialServices, products: initialProducts, gallery: initialGallery, reviews: initialReviews, employees: [{ id: "salon", name: "Équipe du salon", active: true, serviceIds: [], schedule: null }] })) {
@@ -50,6 +52,19 @@ async function initialise(connection: Connection) {
   await connection.query("INSERT INTO settings(id,data) VALUES('salon',$1::jsonb) ON CONFLICT DO NOTHING", [JSON.stringify(initialSettings)]);
   await connection.query("INSERT INTO migration_history(id) VALUES('site-import-20261007') ON CONFLICT DO NOTHING");
   await migratePoster(connection);
+  await migrateReferencePhotos(connection);
+}
+async function migrateReferencePhotos(connection: Connection) {
+  await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
+  if ((await connection.query("SELECT id FROM migration_history WHERE id='reference-photos-20261007'")).rows.length) return;
+  for (const current of await all<Service>("services", connection)) {
+    const updated = withReferencePhoto(current);
+    if (updated !== current) await connection.query("UPDATE content SET data=$2::jsonb WHERE collection='services' AND id=$1", [current.id, JSON.stringify(updated)]);
+  }
+  for (const photo of referenceGallery) await connection.query("INSERT INTO content(collection,id,data) VALUES('gallery',$1,$2::jsonb) ON CONFLICT DO NOTHING", [photo.id, JSON.stringify(photo)]);
+  // Masquer les visuels initiaux, conserver les photos déjà remplacées par le salon.
+  for (const photo of starterGallery) await connection.query("UPDATE content SET data=jsonb_set(data,'{active}','false'::jsonb) WHERE collection='gallery' AND id=$1 AND data->>'image'=$2", [photo.id, photo.image]);
+  await connection.query("INSERT INTO migration_history(id) VALUES('reference-photos-20261007')");
 }
 async function migratePoster(connection: Connection) {
   await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
