@@ -8,14 +8,16 @@ test("accueil, navigation mobile, galerie et absence de débordement", async ({ 
   await expect(page.getByRole("heading", { name: "L’art de sublimer vos cheveux." })).toBeVisible();
   await expect(page.locator(".hero-image img")).toHaveAttribute("src", /fashion-original-1/);
   await expect(page.locator(".hero-copy")).toHaveCSS("opacity", "1");
-  for (const selector of [".hero-image img", ".home-salon-main img", ".home-natural-photo img"]) {
+  for (const selector of [".hero-image img", ".home-salon-main img", ".home-natural-photo img", ".hero-secondary img", ".home-salon-detail img"]) {
     const photo = page.locator(selector);
     await photo.scrollIntoViewIfNeeded();
     await expect(photo).toHaveCSS("object-fit", "cover");
     await expect(photo).toHaveCSS("padding", "0px");
     await expect.poll(() => photo.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   }
-  await expect(page.locator(".hero-secondary img")).toHaveCSS("object-fit", "contain");
+  await expect(page.locator(".hero-secondary")).toHaveCSS("border-top-width", "0px");
+  await expect(page.locator(".home-salon-detail")).toHaveCSS("border-top-width", "0px");
+  await expect(page.locator(".expertise-card").filter({ has: page.getByRole("heading", { name: "Soins capillaires", exact: true }) }).locator("img")).toHaveCSS("object-fit", "cover");
   for (const [category, hairstyle] of [["Extensions", "bouclées"], ["Tissages & Perruques", "Tissage lisse"], ["Événementiel", "Chignon de cérémonie"]]) {
     const photo = page.locator(".expertise-card").filter({ has: page.getByRole("heading", { name: category, exact: true }) }).locator("img");
     await photo.scrollIntoViewIfNeeded();
@@ -26,7 +28,35 @@ test("accueil, navigation mobile, galerie et absence de débordement", async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Ouvrir le menu" }).click(); await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("link", { name: "Nos coiffures" }).click();
   await expect(page).toHaveURL(/\/coiffures/); await page.goto("/#galerie"); await page.locator(".gallery-item").first().click();
-  await expect(page.getByRole("dialog")).toBeVisible(); await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const firstTitle = await page.getByRole("dialog").getByRole("heading").textContent();
+  await expect(page.getByRole("button", { name: "Photo précédente", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Photo suivante", exact: true }).click();
+  await expect(page.locator(".lightbox-counter")).toHaveText("Photo 2 sur 63");
+  await expect(page.getByRole("dialog").getByRole("heading")).not.toHaveText(firstTitle!);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("dialog").getByRole("heading")).toHaveText(firstTitle!);
+  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).not.toBeVisible();
+});
+
+test("la recherche reconnaît les variantes et permet de remettre les filtres à zéro sur mobile", async ({ page, request }) => {
+  const catalog = await (await request.get("/api/catalog")).json();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/coiffures");
+  const search = page.getByRole("searchbox", { name: "Rechercher une coiffure" });
+  await search.fill("  knotless   micro  ");
+  await expect(page.getByRole("heading", { name: "Knotless Braids", exact: true })).toBeVisible();
+  await search.fill("aucune-coiffure-ne-correspond-000");
+  await expect(page.locator(".service-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "Effacer la recherche" }).click();
+  await expect(search).toBeFocused();
+  await expect(page.locator(".service-card")).toHaveCount(catalog.services.length);
+  await page.locator(".catalog-toolbar").getByRole("button", { name: "Hommes", exact: true }).click();
+  await expect(page.locator(".service-card")).toHaveCount(catalog.services.filter((service: { category: string }) => service.category === "Hommes").length);
+  await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+  await expect(search).toBeFocused();
+  await expect(page.locator(".service-card")).toHaveCount(catalog.services.length);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test("les photos du catalogue fourni sont associées à la bonne prestation et à la réservation", async ({ page, request }) => {

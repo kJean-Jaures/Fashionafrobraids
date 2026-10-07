@@ -90,3 +90,12 @@ Les fichiers photographiques restent inchangés. Les cadres du catalogue, des fi
 À la demande du propriétaire, seuls les trois visuels `fashion-original-1.png`, `fashion-original-10.png` et `fashion-original-2.jpg` retrouvent leur présentation antérieure : remplissage du cadre, sans marge intérieure. Les fichiers photographiques restent les originaux. Les autres visuels gardent leur présentation complète.
 
 Les transitions de l’accueil, des titres et du menu mobile sont enrichies ; les boutons reçoivent un effet de lumière au survol. Une barre de progression et un lien « Retour en haut » accompagnent le défilement. Les animations respectent la préférence de mouvement réduit. La compilation de production et les 15 parcours navigateur ont réussi après correction du positionnement du bouton de réservation sur mobile.
+
+
+## Photos de détail, navigation de galerie et recherche — 7 octobre 2026
+
+Les photos `fashion-original-3.jpg` et `fashion-original-8.jpg` sont présentées sans bordure décorative, marge intérieure ni ombre ajoutée, avec remplissage de leur emplacement. La carte Soins capillaires qui réutilise le visuel 8 adopte aussi ce remplissage. Les fichiers photographiques et leurs sources restent intacts.
+
+La visionneuse permet de parcourir les photos de la catégorie choisie, avec boutons, raccourcis gauche/droite et compteur. Les bornes empêchent de dépasser la première ou dernière photo. La recherche reconnaît plusieurs mots dans les noms, descriptions, catégories, tailles et longueurs, sans modifier le catalogue. Son effacement remet le focus dans le champ ; les filtres peuvent être remis à zéro. Les captures accueil et mobile sont actualisées, et les captures de recherche mobile et de navigation de galerie sont ajoutées.
+
+Validation de cette mise à jour : TypeScript et compilation de production réussis, 16 parcours navigateur réussis, contrôles automatisés WCAG AA sans violation sur le catalogue filtré et la visionneuse, aucune erreur JavaScript observée et aucun débordement à 1440 ou 390 pixels. Les données publiques de prestations, de galerie et d’horaires sont identiques avant et après la modification.

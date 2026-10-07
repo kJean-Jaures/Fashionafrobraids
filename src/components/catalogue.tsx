@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import { Search, ArrowUpRight, Clock3, ChevronDown } from "lucide-react";
+import { useRef, useState } from "react";
+import { Search, X, ArrowUpRight, Clock3, ChevronDown } from "lucide-react";
 import type { Service } from "@/lib/catalog";
 import { money, durationLabel, servicePrice, canBookService, canBookVariant, hasKnownDuration, durationIsEstimated, priceIsVerified } from "@/lib/catalog";
 import { useSite } from "./provider";
@@ -24,10 +24,16 @@ export function ServiceCard({ service }: { service: Service }) {
 }
 export function CataloguePage({ category: initialCategory = "Toutes" }: { category?: string }) {
   const { catalog } = useSite(); const [category, setCategory] = useState(initialCategory); const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const resetFilters = () => { setCategory("Toutes"); setSearch(""); searchRef.current?.focus(); };
   const categories = ["Toutes", ...new Set(catalog.services.map(item => item.category))];
   const fold = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const filtered = catalog.services.filter(item => (category === "Toutes" || item.category === category) && fold(`${item.name} ${item.description}`).includes(fold(search)));
-  return <><section className="page-heading"><div className="container"><p className="eyebrow">Le catalogue du salon</p><h1>Une coiffure.<br/><em>Mille façons d’être vous.</em></h1><p>Explorez nos prestations, personnalisez votre style et trouvez votre prochain rendez-vous.</p></div></section><section className="section cream"><div className="container"><PricingNotice/><div className="catalog-toolbar"><div className="filter-row">{categories.map(item => <button className={`filter-chip ${category === item ? "selected" : ""}`} aria-pressed={category === item} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="search-box"><Search size={18}/><input aria-label="Rechercher une coiffure" placeholder="Rechercher une coiffure…" value={search} onChange={event => setSearch(event.target.value)}/></label></div><p className="results-count" aria-live="polite">{filtered.length} prestation{filtered.length > 1 ? "s" : ""}</p><Reveal className="service-grid" stagger>{filtered.map(service => <ServiceCard key={service.id} service={service}/>)}</Reveal>{!filtered.length && <div className="empty-state"><p>Aucune coiffure ne correspond à votre recherche.</p><button className="button outline" onClick={() => { setCategory("Toutes"); setSearch(""); }}>Voir toutes les coiffures</button></div>}</div></section></>;
+  const words = fold(search).trim().split(/\s+/).filter(Boolean);
+  const filtered = catalog.services.filter(item => {
+    const searchable = fold([item.name, item.description, item.category, ...item.variants.flatMap(variant => [variant.size, variant.length])].join(" "));
+    return (category === "Toutes" || item.category === category) && words.every(word => searchable.includes(word));
+  });
+  return <><section className="page-heading"><div className="container"><p className="eyebrow">Le catalogue du salon</p><h1>Une coiffure.<br/><em>Mille façons d’être vous.</em></h1><p>Explorez nos prestations, personnalisez votre style et trouvez votre prochain rendez-vous.</p></div></section><section className="section cream"><div className="container"><PricingNotice/><div className="catalog-toolbar"><label className="search-box"><Search size={18} aria-hidden="true"/><input ref={searchRef} type="search" enterKeyHint="search" autoComplete="off" aria-label="Rechercher une coiffure" placeholder="Coiffure, taille, longueur…" value={search} onChange={event => setSearch(event.target.value)}/>{search && <button type="button" className="search-clear" aria-label="Effacer la recherche" onClick={() => { setSearch(""); searchRef.current?.focus(); }}><X size={17}/></button>}</label><div className="filter-row">{categories.map(item => <button className={`filter-chip ${category === item ? "selected" : ""}`} aria-pressed={category === item} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div></div><div className="catalog-results"><p className="results-count" aria-live="polite">{filtered.length} prestation{filtered.length > 1 ? "s" : ""}{category !== "Toutes" ? ` · ${category}` : ""}</p>{(search || category !== "Toutes") && <button type="button" className="reset-filters" onClick={resetFilters}>Réinitialiser les filtres</button>}</div><Reveal className="service-grid" stagger>{filtered.map(service => <ServiceCard key={service.id} service={service}/>)}</Reveal>{!filtered.length && <div className="empty-state"><p>Aucune coiffure ne correspond à votre recherche.</p><button className="button outline" onClick={resetFilters}>Voir toutes les coiffures</button></div>}</div></section></>;
 }
 export function Customise({ service, variantId, optionIds, onVariant, onOptions }: { service: Service; variantId: string; optionIds: string[]; onVariant: (id: string) => void; onOptions: (ids: string[]) => void }) {
   const variant = service.variants.find(item => item.id === variantId) || service.variants[0];
