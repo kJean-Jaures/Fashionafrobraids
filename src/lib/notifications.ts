@@ -3,7 +3,7 @@ import type { Connection } from "./db";
 import { db, transaction, getSettings } from "./db";
 import { money, durationLabel, type Settings } from "./catalog";
 import { formatDate, formatTime } from "./time";
-import type { Booking } from "./domain";
+import { DomainError, type Booking } from "./domain";
 import { depositPolicy, depositCancellationNotice } from "./booking-policy";
 
 function bookingEmail(booking: Booking, settings: Settings) {
@@ -31,6 +31,21 @@ export async function syncUpcomingReminders(connection: Connection, settings: Se
   for (const booking of bookings) await queueReminder(connection, { ...booking, start_time: Number(booking.start_time), end_time: Number(booking.end_time) }, settings, true);
 }
 type Notification = { id: string; recipient: string; subject: string; body: string; attempts: number };
+async function sendEmail(entry: Pick<Notification, "recipient" | "subject" | "body">, idempotencyKey: string, replyTo?: string) {
+  const result = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyTo, to: [entry.recipient], subject: entry.subject, text: entry.body }), signal: AbortSignal.timeout(10000) });
+  if (!result.ok) throw new Error(`Fournisseur e-mail : ${result.status}`);
+}
+export async function sendTestEmail() {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) throw new DomainError("Configurez RESEND_API_KEY et EMAIL_FROM sur le serveur, puis redémarrez le site.", 503);
+  const settings = await getSettings();
+  if (!settings.email) throw new DomainError("Enregistrez l’adresse e-mail du salon dans les paramètres avant le test.");
+  try {
+    await sendEmail({ recipient: settings.email, subject: `Test d’envoi · ${settings.name}`, body: `Bonjour,\n\nCeci est un e-mail de test de ${settings.name}.\n\nSa réception permet de vérifier la connexion au service d’envoi et l’adresse d’expédition utilisée pour les confirmations et rappels.\n\nLes réponses à ces messages sont dirigées vers ${settings.email}.\n\n${settings.name}\n${settings.address}\n${settings.phone}` }, randomUUID(), settings.email);
+  } catch {
+    throw new DomainError("L’envoi de test a échoué. Vérifiez la clé Resend, ses permissions et le domaine de l’expéditeur, puis réessayez.", 502);
+  }
+  return { accepted: true, recipient: settings.email };
+}
 export async function deliverNotifications() {
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) return { sent: 0, failed: 0, configured: false };
   const { entries, replyTo } = await transaction(async connection => {
@@ -47,8 +62,7 @@ export async function deliverNotifications() {
   let sent = 0; let failed = 0;
   for (const entry of entries) {
     try {
-      const result = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": entry.id }, body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyTo, to: [entry.recipient], subject: entry.subject, text: entry.body }), signal: AbortSignal.timeout(10000) });
-      if (!result.ok) throw new Error(`Fournisseur e-mail : ${result.status}`);
+      await sendEmail(entry, entry.id, replyTo);
       await (await db()).query("UPDATE notifications SET status='sent',last_error=NULL WHERE id=$1", [entry.id]); sent++;
     } catch (error) {
       await (await db()).query("UPDATE notifications SET status='failed',last_error=$2 WHERE id=$1", [entry.id, error instanceof Error ? error.message : "Échec e-mail"]); failed++;

@@ -55,7 +55,26 @@ Pour trouver les DNS :
 4. Dans Resend, ajouter le domaine, puis reporter exactement les enregistrements de vérification fournis dans ses DNS. Conserver les enregistrements actuels du site et de la messagerie.
 5. Attendre que Resend indique le domaine vérifié, puis renseigner les variables sécurisées ci-dessous et tester la réception avec une adresse autorisée.
 
-L’accès aux réglages DNS n’est pas encore confirmé par le propriétaire. Aucun enregistrement DNS ni routage du site actuel n’a été modifié.
+Le **8 octobre 2026**, les captures du propriétaire ont confirmé l’accès aux DNS Squarespace, l’ajout des trois enregistrements demandés par Resend, puis le statut **Verified** du domaine `fashionafrobraids.fr`, autorisé à envoyer. Une clé avec la permission **Sending access** a aussi été créée. Cela valide le domaine côté fournisseur ; la présence de la clé dans le serveur et la réception d’un message restent à vérifier. Ces réglages ont été réalisés par le propriétaire. Le domaine continue d’héberger le site Squarespace.
+
+### Connecter le site local et vérifier l’envoi
+
+Dans le dossier du site qui contient `package.json`, ajouter au fichier privé `.env.local` :
+
+```dotenv
+RESEND_API_KEY=VOTRE_CLE_PRIVEE
+EMAIL_FROM="Fashion Afro Braids <reservation@fashionafrobraids.fr>"
+```
+
+Remplacer `VOTRE_CLE_PRIVEE` localement par la clé créée. Ajouter les lignes au fichier existant, puis redémarrer le serveur ; le fichier du PC n’est pas transmis automatiquement à l’environnement cloud. Garder la clé privée. En cas de mise à jour du code, conserver le fichier `.env.local` et les données du dossier `data`.
+
+1. Ouvrir **Espace salon**. Le mot de passe est la valeur de `ADMIN_PASSWORD` dans `.env.local`, à saisir uniquement dans le formulaire de connexion.
+2. Ouvrir **Paramètres → Connexions & confirmations**. « Configuré » indique que le serveur a chargé les deux variables. Si « À connecter » reste affiché, vérifier le fichier du dossier réellement démarré et redémarrer cette copie du site.
+3. Vérifier l’adresse E-mail enregistrée du salon : actuellement `fashionafrobraidsoff@gmail.com`.
+4. Cliquer sur **Envoyer un e-mail de test**. Ce bouton envoie un seul message explicitement identifié comme test à l’adresse enregistrée du salon. Il n’utilise pas les réservations ni les e-mails clientes en attente.
+5. Vérifier le message dans Gmail, y compris les courriers indésirables, et son suivi dans **Resend → Emails**. « Resend a accepté » signifie que le fournisseur a accepté la demande ; la réception doit être constatée dans la boîte de destination.
+
+L’envoi de test est réservé à l’administrateur, limité à cinq demandes sur dix minutes par serveur, et utilise le même transport Resend que les confirmations et rappels. Il ne valide pas encore le paiement PayPal ni l’exécution automatique des rappels. Les essais complets de confirmation après acompte et de rappel suivent les étapes ci-dessous.
 
 ### Activer et vérifier les envois
 

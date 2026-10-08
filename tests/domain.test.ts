@@ -13,7 +13,7 @@ import { availability, createBooking, readBooking, cancelBooking, createOrder, r
 import { saveContent, removeContent, saveSettings } from "../src/lib/admin";
 import { addDays, parisDate, timestamp, localTimeToEpoch } from "../src/lib/time";
 import { bookingSchema, orderSchema } from "../src/lib/validation";
-import { deliverNotifications } from "../src/lib/notifications";
+import { deliverNotifications, sendTestEmail } from "../src/lib/notifications";
 import { handlePaymentWebhook, checkoutSession, captureBookingPayment } from "../src/lib/payments";
 import { bookingReadiness } from "../src/lib/booking-readiness";
 import { depositPolicy, depositCancellationNotice } from "../src/lib/booking-policy";
@@ -131,6 +131,45 @@ test("l’envoi e-mail suit les réponses du fournisseur et ne renvoie pas la co
   try { assert.deepEqual(await deliverNotifications(), { sent: 1, failed: 0, configured: true }); assert.deepEqual(await deliverNotifications(), { sent: 0, failed: 0, configured: true }); assert.equal(requests, 1); }
   finally { globalThis.fetch = originalFetch; }
   assert.equal((await (await db()).query("SELECT id FROM notifications WHERE booking_id=$1 AND status='sent'", [saved.id])).rows.length, 1);
+});
+test("le test d’envoi exige une configuration et une adresse salon avant de contacter le fournisseur", async () => {
+  let requests = 0; const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { requests++; throw new Error("Aucun appel attendu"); };
+  try {
+    await assert.rejects(sendTestEmail(), error => error instanceof Error && error.message.includes("RESEND_API_KEY"));
+    process.env.RESEND_API_KEY = "test-only-key"; process.env.EMAIL_FROM = "salon@example.com";
+    await saveSettings({ ...initialSettings, email: "" });
+    await assert.rejects(sendTestEmail(), /adresse e-mail du salon/);
+    assert.equal(requests, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});
+test("le test d’envoi cible le salon sans confirmer de rendez-vous ni envoyer les notifications en attente", async () => {
+  const saved = await createBooking(booking());
+  process.env.RESEND_API_KEY = "test-only-key"; process.env.EMAIL_FROM = "salon@example.com";
+  const originalFetch = globalThis.fetch; let requests = 0;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(String(url), "https://api.resend.com/emails");
+    const payload = JSON.parse(String(options?.body));
+    assert.deepEqual(payload.to, [initialSettings.email]);
+    assert.equal(payload.from, "salon@example.com");
+    assert.equal(payload.reply_to, initialSettings.email);
+    assert.match(payload.subject, /Test d’envoi/); assert.match(payload.text, /e-mail de test/);
+    assert.ok(new Headers(options?.headers).get("Idempotency-Key"));
+    requests++; return Response.json({ id: "simulated-test-email" }, { status: 201 });
+  };
+  try { assert.deepEqual(await sendTestEmail(), { accepted: true, recipient: initialSettings.email }); }
+  finally { globalThis.fetch = originalFetch; }
+  assert.equal(requests, 1);
+  const notifications = (await (await db()).query<{ status: string }>("SELECT status FROM notifications WHERE booking_id=$1", [saved.id])).rows;
+  assert.equal(notifications.length, 2); assert.ok(notifications.every(item => item.status === "pending"));
+  assert.equal((await (await db()).query("SELECT id FROM bookings")).rows.length, 1);
+});
+test("un fournisseur qui refuse le test ne produit pas une confirmation de succès", async () => {
+  process.env.RESEND_API_KEY = "test-only-key"; process.env.EMAIL_FROM = "salon@example.com";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ error: "Simulated unauthorized key" }, { status: 401 });
+  try { await assert.rejects(sendTestEmail(), /L’envoi de test a échoué/); }
+  finally { globalThis.fetch = originalFetch; }
 });
 test("les réponses au rappel utilisent l’adresse actualisée du salon et une adresse vide est omise", async () => {
   const saved = await createBooking(booking());

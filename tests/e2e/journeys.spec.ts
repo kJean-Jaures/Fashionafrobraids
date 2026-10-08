@@ -301,6 +301,36 @@ test("la préparation du salon enregistre les consignes et valide un tarif par v
   expect((await request.put("/api/admin/settings", { headers, data: originalSettings })).status()).toBe(200);
 });
 
+test("le test d’envoi est protégé et l’administration distingue acceptation et réception", async ({ page, request }) => {
+  expect((await request.post("/api/admin/email-test")).status()).toBe(401);
+  const login = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
+  const headers = { Cookie: login.headers()["set-cookie"].split(";")[0] };
+  expect((await request.post("/api/admin/email-test", { headers: { ...headers, Origin: "https://other-origin.example" } })).status()).toBe(403);
+  expect((await request.post("/api/admin/email-test", { headers })).status()).toBe(503);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters");
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Paramètres", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Envoyer un e-mail de test", exact: true })).toBeDisabled();
+  const recipient = (await (await request.get("/api/catalog")).json()).settings.email;
+  // Simuler uniquement la réponse du fournisseur dans le navigateur ; aucun e-mail réel.
+  await page.route("**/api/admin", async route => {
+    const response = await route.fetch(); const data = await response.json(); data.integrations.email = true;
+    await route.fulfill({ response, json: data });
+  });
+  await page.getByRole("button", { name: "Actualiser", exact: true }).click();
+  const send = page.getByRole("button", { name: "Envoyer un e-mail de test", exact: true });
+  await expect(send).toBeEnabled();
+  await page.route("**/api/admin/email-test", route => route.fulfill({ status: 502, json: { error: "L’envoi de test a échoué." } }));
+  await send.click(); await expect(page.locator(".admin-main").getByRole("alert")).toHaveText("L’envoi de test a échoué.");
+  await page.unroute("**/api/admin/email-test");
+  await page.route("**/api/admin/email-test", route => route.fulfill({ json: { accepted: true, recipient } }));
+  await send.click();
+  await expect(page.getByRole("status").filter({ hasText: "Resend a accepté" })).toContainText(recipient);
+  await expect(page.locator(".admin-main").getByRole("alert")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test("la tâche de rappel exige son secret et son dernier passage apparaît dans la préparation", async ({ request }) => {
   expect((await request.get("/api/cron/reminders")).status()).toBe(401);
   expect((await request.get("/api/cron/reminders", { headers: { Authorization: "Bearer wrong-test-secret" } })).status()).toBe(401);
