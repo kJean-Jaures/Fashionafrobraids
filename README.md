@@ -88,6 +88,8 @@ Les envois sont réessayés jusqu’à trois tentatives. La clé d’idempotence
 
 Le propriétaire a choisi **carte bancaire et Apple Pay**, avec versement sur son compte à **La Banque Postale**, le 8 octobre 2026. Le parcours utilise **SumUp Hosted Checkout**, choisi pour sa page hébergée et son support officiel des cartes et wallets. Le compte SumUp du salon reste à créer et à valider auprès du prestataire. Apple Pay dépend du navigateur, de l’appareil, de la carte et de la configuration du marchand ; un bouton Apple Pay factice n’est pas affiché sur le site.
 
+Le choix SumUp est reconfirmé après comparaison avec le virement manuel. Aucun e-mail d’instructions de paiement n’est envoyé : la confirmation et le rappel sont déclenchés uniquement après vérification du paiement. La confirmation dépend de l’encaissement validé chez SumUp, avant son versement ultérieur sur le compte bancaire du salon.
+
 Chaque prestation est configurée avec un acompte fixe de **10 €**, déduit du prix total. Le solde est réglé au salon. L’administration peut ajuster cette règle par prestation. La boutique conserve le paiement au retrait.
 
 Configurer les variables privées du serveur :

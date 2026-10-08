@@ -8,6 +8,8 @@ Pour comprendre les rubriques et préparer l’équipe, consulter [le guide d’
 
 Le propriétaire a choisi carte bancaire et Apple Pay, avec réception des encaissements sur son compte à La Banque Postale. Le compte **SumUp du salon reste à créer**. L’intégration utilise une page de paiement hébergée et ne collecte pas les cartes dans le site.
 
+Le choix a été reconfirmé le **8 octobre 2026** après comparaison avec le virement manuel. Aucun e-mail d’instructions de paiement ou de réservation en attente n’est envoyé. Le serveur vérifie l’encaissement de l’acompte auprès de SumUp, confirme le rendez-vous, envoie la confirmation puis programme le rappel. Cette validation n’attend pas le versement ultérieur de SumUp sur le compte à La Banque Postale ; ses délais dépendent du compte marchand. Aucun bouton de validation manuelle de virement n’est ajouté à ce parcours.
+
 Le test doit utiliser un profil marchand **Sandbox**, distinct du profil d’encaissement réel. Une adresse **HTTPS joignable depuis Internet** doit renvoyer vers cette nouvelle application pour recevoir les callbacks. Un lien HTTPS temporaire vers le serveur local peut servir aux essais. Ne pas utiliser le domaine encore relié au site Squarespace comme s’il servait déjà la nouvelle application.
 
 Sur le PC, les paramètres sont ajoutés au fichier privé `.env.local` existant, puis le serveur est redémarré. Sur l’hébergeur ou dans le cloud, utiliser les variables sécurisées. Conserver `.env.local` et le dossier `data` lors des mises à jour. Le fichier et les réglages du PC ne sont pas copiés automatiquement dans le cloud.
