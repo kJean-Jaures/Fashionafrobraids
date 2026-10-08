@@ -8,6 +8,10 @@ Ouvrir l’aperçu du site et cliquer sur **Espace salon** dans le pied de page,
 
 Pour l’aperçu local, le mot de passe est créé lors du démarrage dans le fichier privé `.env.local`, à la ligne `ADMIN_PASSWORD`. Ce fichier se trouve dans le dossier du projet, près de `package.json`. L’ouvrir avec un éditeur de texte et utiliser le mot de passe uniquement dans la page de connexion. Ne pas l’envoyer dans le chat, le publier ou le mettre dans Git.
 
+Si le fichier contient déjà les réglages Resend mais aucune ligne `ADMIN_PASSWORD`, la dernière version du lanceur ajoute un mot de passe aléatoire en conservant les réglages existants. Fermer le serveur puis relancer `Demarrer-le-site.cmd`, ou exécuter `npm run setup` dans ce dossier avant de redémarrer le serveur. Un mot de passe existant est conservé lors des prochains démarrages.
+
+Pour débloquer une ancienne copie sans télécharger à nouveau le projet, ajouter une ligne `ADMIN_PASSWORD=` suivie d’un mot de passe personnel unique d’au moins 16 caractères, enregistrer le fichier puis redémarrer le site. Utiliser ensuite ce mot de passe dans le formulaire de connexion. Garder les valeurs privées et les clés hors des captures d’écran.
+
 L’espace utilise actuellement un accès administrateur commun par mot de passe. Ajouter une coiffeuse dans **Équipe** crée une ressource du planning ; cela ne crée pas un compte de connexion individuel.
 
 ## Comprendre les rubriques

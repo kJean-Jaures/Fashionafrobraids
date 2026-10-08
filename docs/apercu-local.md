@@ -45,6 +45,8 @@ Les modifications de développement apparaissent dans le navigateur. Pour arrêt
 
 Le mot de passe de gestion est créé dans le fichier privé `.env.local`, à la ligne `ADMIN_PASSWORD`. Il permet d'ouvrir `/admin`. Les données restent dans `data/postgres` et les photos ajoutées dans `data/uploads`. Ces fichiers sont exclus de Git.
 
+Si `.env.local` existe déjà avec les réglages e-mail, le lanceur complète maintenant uniquement le mot de passe absent ou vide. Les autres réglages et un mot de passe existant sont conservés. Lire le mot de passe localement et le saisir uniquement dans l’administration ; garder ce fichier hors des captures d’écran. Pour une ancienne version du lanceur, ajouter une ligne `ADMIN_PASSWORD=` suivie d’un mot de passe personnel unique d’au moins 16 caractères, puis redémarrer le site.
+
 Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend ou PayPal, aucun e-mail réel ni paiement d'acompte n'est effectué.
 
 ## GitHub et lien public

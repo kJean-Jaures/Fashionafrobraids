@@ -54,6 +54,9 @@ function openBrowser() {
 }
 async function main() {
   console.log("Fashion Afro Braids · aperçu local sur votre ordinateur\n");
+  // Prépare aussi un fichier existant qui ne contient encore que les clés e-mail.
+  // Le script ne dépend que de Node et conserve les valeurs déjà enregistrées.
+  await npm(["run", "setup"]);
   if (await ready()) { openBrowser(); return; }
   if (await currentCatalogue()) {
     // Un ancien ZIP peut encore servir le port 3000. Ouvrir la nouvelle copie
@@ -80,7 +83,6 @@ async function main() {
     try { await npm(["ls", "--depth=0"]); }
     catch { await npm(["ci", "--no-audit", "--no-fund"]); }
   }
-  await npm(["run", "setup"]);
   console.log("\nPréparation du site… Gardez cette fenêtre ouverte. Ctrl+C pour arrêter.\n");
   const child = spawn(process.execPath, [resolve(root, "node_modules/next/dist/bin/next"), "dev", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: root, stdio: "inherit", env: demoEnvironment });
   let exited = false;

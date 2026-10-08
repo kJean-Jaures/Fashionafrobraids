@@ -31,7 +31,7 @@ npm run dev
 
 Le serveur utilise le port 3000. Le dépôt existant est déjà isolé dans l’environnement cloud : travailler dans ce checkout, sans créer de worktree.
 
-`npm run setup` crée un mot de passe de gestion aléatoire dans **.env.local**, uniquement si ce fichier n’existe pas. Ce fichier privé n’est pas versionné. Ouvrir ce fichier localement pour obtenir ou remplacer le mot de passe, puis redémarrer le serveur après modification. Utiliser au moins 16 caractères. Aucun mot de passe, clé ou chaîne de connexion ne doit être ajouté à Git.
+`npm run setup` crée un mot de passe de gestion aléatoire dans **.env.local** si `ADMIN_PASSWORD` est absent ou vide, même si le fichier contient déjà les clés e-mail. Les réglages existants et un mot de passe déjà défini sont conservés. Le lanceur local effectue ce contrôle avant de réutiliser un serveur. Ce fichier privé n’est pas versionné. Ouvrir ce fichier localement pour obtenir ou remplacer le mot de passe, puis redémarrer le serveur après modification. Utiliser au moins 16 caractères. Aucun mot de passe, clé ou chaîne de connexion ne doit être ajouté à Git.
 
 ## Ce qui fonctionne
 

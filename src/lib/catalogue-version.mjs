@@ -1,1 +1,1 @@
-export const catalogueVersion = "fashion-email-test-20261008";
+export const catalogueVersion = "fashion-admin-setup-20261008";
