@@ -6,30 +6,42 @@ Pour comprendre les rubriques et préparer l’équipe, consulter [le guide d’
 
 ## Préparer les connexions avant la mise en ligne
 
-La préparation peut se faire avant l’ouverture publique : utiliser PayPal **Sandbox**, un expéditeur e-mail vérifié et une réservation de test. Aucun paiement réel n’est nécessaire pour vérifier le parcours Sandbox. Le compte marchand de test Sandbox et les comptes PayPal destinés aux vrais encaissements sont distincts ; un compte Business est nécessaire pour recevoir les paiements réels du salon.
+Le propriétaire a choisi carte bancaire et Apple Pay, avec réception des encaissements sur son compte à La Banque Postale. Le compte **SumUp du salon reste à créer**. L’intégration utilise une page de paiement hébergée et ne collecte pas les cartes dans le site.
 
-Pour recevoir la notification automatique de PayPal, l’application de test doit disposer d’une adresse **HTTPS joignable depuis Internet**. Un lien HTTPS temporaire qui renvoie vers l’application locale peut servir aux essais. L’adresse locale de l’ordinateur ne peut pas être utilisée directement comme webhook. Ne pas utiliser le domaine encore relié à Squarespace comme s’il servait déjà cette nouvelle application.
+Le test doit utiliser un profil marchand **Sandbox**, distinct du profil d’encaissement réel. Une adresse **HTTPS joignable depuis Internet** doit renvoyer vers cette nouvelle application pour recevoir les callbacks. Un lien HTTPS temporaire vers le serveur local peut servir aux essais. Ne pas utiliser le domaine encore relié au site Squarespace comme s’il servait déjà la nouvelle application.
 
-Les confirmations peuvent être envoyées depuis l’application locale une fois Resend et l’expéditeur configurés. Pour les rappels, le serveur et le mécanisme d’envoi doivent être actifs au moment prévu ; un ordinateur fermé n’envoie pas de rappel. Pendant les essais, les e-mails dus peuvent être déclenchés depuis l’administration sur une base contenant uniquement des réservations de test autorisées. La tâche planifiée sera nécessaire pour un fonctionnement permanent.
+Sur le PC, les paramètres sont ajoutés au fichier privé `.env.local` existant, puis le serveur est redémarré. Sur l’hébergeur ou dans le cloud, utiliser les variables sécurisées. Conserver `.env.local` et le dossier `data` lors des mises à jour. Le fichier et les réglages du PC ne sont pas copiés automatiquement dans le cloud.
 
-Sur le PC du propriétaire, les variables sont ajoutées au fichier privé `.env.local`, puis le serveur est redémarré. Dans le cloud ou chez l’hébergeur, utiliser les paramètres sécurisés. Ne jamais transmettre les valeurs dans le chat ou Git.
+Le propriétaire a confirmé l’accès à l’administration et la réception du test e-mail local le **8 octobre 2026**. Les confirmations et rappels sont activés avec un délai de 24 h, mais le parcours de paiement et l’exécution permanente des rappels restent à vérifier. Aucun paiement réel ni test distant SumUp n’a été effectué.
 
-État vérifié le **8 octobre 2026** dans l’environnement de développement : administration protégée et accessible après connexion ; confirmations et rappels activés avec un délai de 24 h ; PayPal, fournisseur d’e-mails et tâche de rappel encore non configurés. Aucun encaissement ni envoi réel n’a été validé. Les exigences de configuration sont déjà déclarées dans le brouillon cloud.
+## Carte bancaire et Apple Pay avec SumUp
 
-## Acompte de 10 € avec PayPal
+1. Créer un compte pour le salon sur [SumUp](https://www.sumup.com/fr-fr/paiements-en-ligne/). Renseigner les informations du salon et le compte de réception à La Banque Postale **chez SumUp**, puis faire valider le profil. Vérifier auprès de SumUp l’activation des paiements en ligne, les frais et les délais de versement. Le nouveau site utilise un paiement en ligne.
+2. Dans le tableau de bord SumUp, ouvrir les **réglages développeur → Sandboxes** et créer un profil marchand Sandbox. La [documentation de test](https://developer.sumup.com/online-payments/testing/) décrit aussi l’inscription à un compte développeur qui démarre avec un Sandbox.
+3. Pour ce profil, relever le **code marchand** et créer sa **clé API privée** dans **For Developers → Toolkit → API Keys**. La clé publique ne suffit pas. [Guide officiel des clés](https://developer.sumup.com/tools/authorization/api-keys/).
+4. Dans les paramètres privés du serveur, compléter :
 
-L’intégration utilise PayPal Checkout. Un compte **PayPal Business** est nécessaire ; le compte personnel actuel doit être converti ou remplacé par un compte Business par le propriétaire. Cette opération n’est pas effectuée par le site.
+   ```dotenv
+   PAYMENT_PROVIDER=sumup
+   SUMUP_API_KEY=VOTRE_CLE_PRIVEE_DU_PROFIL_SANDBOX
+   SUMUP_MERCHANT_CODE=CODE_DU_MEME_PROFIL
+   SUMUP_MODE=test
+   PUBLIC_SITE_URL=https://ADRESSE_DE_CETTE_APPLICATION
+   ```
 
-1. Depuis [PayPal](https://www.paypal.com/fr/business), préparer le compte Business.
-2. Dans [PayPal Developer](https://developer.paypal.com/dashboard/applications), créer une application Sandbox.
-3. Ajouter le webhook HTTPS `https://VOTRE-DOMAINE/api/payments/paypal/webhook` pour l’événement `PAYMENT.CAPTURE.COMPLETED`. `VOTRE-DOMAINE` est à remplacer par le domaine où cette application est réellement déployée, pas un site Squarespace encore en service.
-4. Dans les variables sécurisées de l’hébergeur, renseigner `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MODE=sandbox` et `PUBLIC_SITE_URL=https://VOTRE-DOMAINE`.
-5. Effectuer une réservation avec un compte acheteur Sandbox distinct. Vérifier le montant de **10,00 EUR**, le passage de « Acompte en attente » à « Confirmé », le solde au salon, le retour navigateur et le webhook. Vérifier qu’un événement répété ne confirme ni n’encaisse deux fois.
-6. Lorsque le test est validé, configurer les identifiants et le webhook Live, passer `PAYPAL_MODE=live` et utiliser `DEMO_MODE=false` sur le véritable site public. La démonstration bloque les paiements Live.
+   Remplacer ces exemples localement ou dans les variables sécurisées. La clé et les coordonnées bancaires ne doivent être ni envoyées dans le chat, ni ajoutées aux captures, ni mises dans Git. Redémarrer le serveur après modification.
+5. Réserver avec une adresse e-mail autorisée et payer sur la page SumUp avec une **carte de test de sa documentation**, sans fonds réels. Vérifier : montant **10,00 EUR**, retour à la réservation, état « Confirmé », solde au salon, confirmation e-mail, callback même sans retour du navigateur et absence de double envoi. Vérifier aussi un paiement refusé ou abandonné. Ne pas utiliser une vraie carte en supposant que la variable `test` seule simule la banque : le serveur vérifie le profil `sandbox` auprès de SumUp avant la création du checkout.
+6. Après validation complète, sélectionner le profil réel validé, créer sa propre clé, remplacer son code marchand, passer `SUMUP_MODE=live` et utiliser `DEMO_MODE=false` sur le site public. La démonstration bloque le mode Live. Vérifier Apple Pay sur un appareil, navigateur et carte compatibles ; les tests simulés du projet ne valident pas un paiement Apple Pay réel.
 
-Le créneau est retenu 35 minutes pendant le paiement. Sans configuration PayPal, aucun acompte n’est encaissé et aucune réservation avec acompte n’est confirmée gratuitement. Un client peut être orienté vers le téléphone du salon. L’acompte de **10 € n’est pas remboursable si la cliente annule**. La règle est affichée avant paiement et dans les confirmations des nouvelles réservations. Une annulation par le salon ou un paiement encaissé sans rendez-vous confirmé doit être examiné directement dans PayPal ; aucun remboursement automatique n’est déclenché.
+Le [Hosted Checkout officiel](https://developer.sumup.com/online-payments/checkouts/hosted-checkout/) fournit la page de paiement carte et wallets. Le callback est défini automatiquement lors de chaque checkout, à `/api/payments/sumup/webhook`, via `return_url`. Un callback public n’est jamais pris comme preuve : le serveur relit le checkout puis la transaction avec la clé privée. Les frais de SumUp ne changent pas le solde client : les 10 € d’acompte sont déduits intégralement du prix de la prestation.
 
-Ne jamais mettre les identifiants dans le chat, les captures d’écran ou Git. Redémarrer le serveur après mise à jour de ses variables. Aucune clé de paiement n’est saisie dans le formulaire administrateur du site.
+Le créneau est retenu **35 minutes**, avec une expiration identique du checkout. Sans connexion, le bouton de paiement reste désactivé. Un paiement tardif ne peut pas doubler un créneau ; s’il ne peut plus confirmer le rendez-vous, l’administration le signale pour examen et la cliente est invitée à contacter le salon sans repayer.
+
+L’acompte n’est pas remboursable si la cliente annule. Cette règle est conservée avec la réservation. Une annulation par le salon ou un paiement encaissé sans rendez-vous confirmé doit être examiné directement auprès du prestataire ; aucun remboursement automatique n’est déclenché.
+
+### Option PayPal existante
+
+L’intégration PayPal et l’historique sont conservés. Pour la sélectionner, utiliser `PAYMENT_PROVIDER=paypal`, les identifiants marchands `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MODE=sandbox`, ainsi que `PUBLIC_SITE_URL`. Son webhook reste `/api/payments/paypal/webhook`, événement `PAYMENT.CAPTURE.COMPLETED`. Le compte auparavant connecté à Squarespace n’a pas été vérifié ; ne pas supposer que sa connexion est transférée au nouveau site. Cette option n’est pas nécessaire au choix carte/Apple Pay SumUp.
 
 ## Planning et catalogue
 
@@ -55,7 +67,7 @@ Pour trouver les DNS :
 4. Dans Resend, ajouter le domaine, puis reporter exactement les enregistrements de vérification fournis dans ses DNS. Conserver les enregistrements actuels du site et de la messagerie.
 5. Attendre que Resend indique le domaine vérifié, puis renseigner les variables sécurisées ci-dessous et tester la réception avec une adresse autorisée.
 
-Le **8 octobre 2026**, les captures du propriétaire ont confirmé l’accès aux DNS Squarespace, l’ajout des trois enregistrements demandés par Resend, puis le statut **Verified** du domaine `fashionafrobraids.fr`, autorisé à envoyer. Une clé avec la permission **Sending access** a aussi été créée. Cela valide le domaine côté fournisseur ; la présence de la clé dans le serveur et la réception d’un message restent à vérifier. Ces réglages ont été réalisés par le propriétaire. Le domaine continue d’héberger le site Squarespace.
+Le **8 octobre 2026**, les captures du propriétaire ont confirmé l’accès aux DNS Squarespace, l’ajout des trois enregistrements demandés par Resend, puis le statut **Verified** du domaine `fashionafrobraids.fr`, autorisé à envoyer. Une clé avec la permission **Sending access** a aussi été créée. Le propriétaire a ensuite montré la réception du test dans Gmail, ce qui valide l’envoi depuis son site local. Les confirmations après paiement et les rappels automatiques restent à vérifier. Ces réglages ont été réalisés par le propriétaire. Le domaine continue d’héberger le site Squarespace.
 
 ### Connecter le site local et vérifier l’envoi
 

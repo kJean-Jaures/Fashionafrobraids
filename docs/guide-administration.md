@@ -43,13 +43,13 @@ Une modification d’horaires ou d’équipe incompatible avec un rendez-vous ex
 
 ## Paiements et confirmations
 
-La connexion PayPal se prépare avec les comptes et variables sécurisées du serveur ; les clés privées ne sont pas saisies dans l’administration. Voir [le guide d’activation](activer-reservations.md).
+La connexion du service de paiement choisi se prépare avec le compte marchand et les variables sécurisées du serveur ; les clés privées ne sont pas saisies dans l’administration. Voir [le guide d’activation](activer-reservations.md).
 
 Une réservation avec acompte devient **Confirmée** après vérification du paiement. Exemple pour une prestation de 80 € : 10 € encaissés à la réservation, puis 70 € à régler au salon. Un rendez-vous « Acompte en attente » ne signifie pas que le paiement est acquis.
 
-L’acompte n’est pas remboursable si la cliente annule. Annuler depuis l’administration libère le créneau et arrête les messages futurs ; cela ne déclenche pas un remboursement PayPal. Si le salon annule ou si un paiement a été reçu sans rendez-vous confirmé, examiner la situation directement dans PayPal.
+L’acompte n’est pas remboursable si la cliente annule. Annuler depuis l’administration libère le créneau et arrête les messages futurs ; cela ne déclenche pas de remboursement automatique. Si le salon annule ou si un paiement a été reçu sans rendez-vous confirmé, examiner la situation chez le prestataire de paiement.
 
-Les commandes de la boutique utilisent actuellement le paiement au retrait au salon. La connexion PayPal concerne les acomptes de réservation.
+Les commandes de la boutique utilisent actuellement le paiement au retrait au salon. La connexion SumUp choisie concerne les acomptes de réservation.
 
 ## E-mails et rappels
 
@@ -59,8 +59,15 @@ Pour que les messages partent, le service d’envoi doit être configuré et l�
 
 L’adresse **fashionafrobraidsoff@gmail.com**, fournie par le propriétaire, reçoit les réponses aux confirmations et rappels. La modifier dans **Paramètres → E-mail** change cette adresse de réponse. L’adresse d’expédition est distincte : Resend exige un domaine vérifié et ne permet pas d’expédier au nom de gmail.com. L’expéditeur proposé est `Fashion Afro Braids <reservation@fashionafrobraids.fr>`, à renseigner dans `EMAIL_FROM` sur le serveur où tourne le site.
 
-Le propriétaire a depuis montré le statut **Verified** du domaine dans Resend. Pour vérifier la connexion du site, ouvrir **Paramètres → Connexions & confirmations**, puis cliquer sur **Envoyer un e-mail de test**. Le bouton devient accessible quand le serveur a chargé la configuration d’envoi et qu’une adresse E-mail du salon est enregistrée. Il envoie un seul message identifié comme test à cette adresse, sans envoyer les messages clientes en attente. Le résultat « Resend a accepté » demande encore de vérifier la réception dans Gmail et les courriers indésirables. Une configuration ajoutée au PC reste locale ; elle n’est pas copiée automatiquement dans le cloud.
+Le propriétaire a depuis montré le statut **Verified** du domaine dans Resend. Pour vérifier la connexion du site, ouvrir **Paramètres → Connexions & confirmations**, puis cliquer sur **Envoyer un e-mail de test**. Le bouton devient accessible quand le serveur a chargé la configuration d’envoi et qu’une adresse E-mail du salon est enregistrée. Il envoie un seul message identifié comme test à cette adresse, sans envoyer les messages clientes en attente. Le résultat « Resend a accepté » demande encore de vérifier la réception dans Gmail et les courriers indésirables. Le propriétaire a confirmé la réception du test Gmail depuis son PC le 8 octobre 2026. Une configuration ajoutée au PC reste locale ; elle n’est pas copiée automatiquement dans le cloud. Les confirmations après paiement et les rappels automatiques restent à vérifier.
 
 Dans la préparation, le **dernier passage observé** permet de vérifier que la tâche de rappel fonctionne réellement. Le bouton **Envoyer les e-mails dus** envoie les messages déjà en attente quand le fournisseur est connecté ; ce n’est pas un bouton d’envoi à une adresse de test arbitraire.
 
 Pour un essai avant ouverture, utiliser uniquement une réservation de test avec une adresse dont le propriétaire a autorisé l’utilisation. Vérifier la réception de la confirmation et du rappel, puis l’arrêt des rappels après annulation. Un rendez-vous réservé après l’heure prévue du rappel ne reçoit pas un deuxième message immédiat.
+
+
+### Carte bancaire et Apple Pay
+
+Le propriétaire a choisi SumUp Hosted Checkout avec versement sur son compte à La Banque Postale. Dans **Préparer les réservations** et **Paramètres → Connexions & confirmations**, le bloc « Carte bancaire & Apple Pay · 10 € » affiche la présence de la configuration et le guide d’activation. « Configuration présente » ne prouve pas un encaissement : un essai complet avec le profil Sandbox reste nécessaire.
+
+Le compte du salon et son profil bancaire sont créés et validés chez SumUp. La clé privée et le code marchand sont renseignés dans les variables du serveur, pas dans le formulaire de gestion. Le site conserve le montant de 10 € et la règle d’annulation non remboursable par la cliente. Un paiement reçu sans créneau confirmable est signalé pour vérification du salon ; examiner la transaction SumUp avant de décider de la suite, sans demander un second paiement à la cliente.

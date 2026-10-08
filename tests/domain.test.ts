@@ -19,6 +19,9 @@ import { bookingReadiness } from "../src/lib/booking-readiness";
 import { depositPolicy, depositCancellationNotice } from "../src/lib/booking-policy";
 import { durationEstimates } from "../src/lib/duration-estimates";
 import { posterServices } from "../src/lib/poster-catalog";
+import { bookingCheckoutSession } from "../src/lib/booking-payments";
+import { bookingPaymentsConfigured, sumupConfigured } from "../src/lib/payment-config";
+import { handleSumUpWebhook, sumupCheckoutSession, verifySumUpPayment } from "../src/lib/sumup-payments";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
@@ -26,7 +29,7 @@ const booking = (patch = {}) => bookingSchema.parse({ serviceId: "knotless", var
 const order = (items = [{ productId: "bonnet", quantity: 1 }], patch = {}) => orderSchema.parse({ name: "Cliente Test", email: "test@example.com", phone: "0612345678", consent: true, requestId: randomUUID(), items, ...patch });
 before(async () => { directory = await mkdtemp(join(tmpdir(), "fab-domain-tests-")); process.env.DATA_DIR = directory; delete process.env.DATABASE_URL; delete process.env.RESEND_API_KEY; delete process.env.PAYPAL_CLIENT_SECRET; await db(); });
 beforeEach(async () => {
-  for (const name of ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID", "PAYPAL_MODE", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM"]) delete process.env[name];
+  for (const name of ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID", "PAYPAL_MODE", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM", "SUMUP_API_KEY", "SUMUP_MERCHANT_CODE", "SUMUP_MODE", "PAYMENT_PROVIDER", "DEMO_MODE"]) delete process.env[name];
   const connection = await db();
   for (const table of ["notifications", "bookings", "orders", "blocks", "payment_events"]) await connection.query(`DELETE FROM ${table}`);
   await connection.query("DELETE FROM automation_runs");
@@ -112,7 +115,7 @@ test("une rupture sur le second produit annule toute la réduction de stock", as
 test("un identifiant de commande répété ne décrémente pas deux fois le stock", async () => {
   const input = order(); await createOrder(input); await assert.rejects(createOrder(input)); assert.equal((await publicCatalog()).products.find(p => p.id === "bonnet")!.stock, 9);
 });
-test("un acompte sans connexion PayPal bloque proprement la réservation", async () => {
+test("un acompte sans connexion de paiement bloque proprement la réservation", async () => {
   const service = (await one<Service>("services", "knotless"))!; service.deposit = { type: "percent", value: 25 }; await saveContent("services", service);
   await assert.rejects(createBooking(booking()), /n’est pas encore activé/); assert.ok((await availability("knotless", "1-1", future())).includes("08:30"));
 });
@@ -203,6 +206,7 @@ test("l’adresse fournie complète une ancienne base sans écraser une adresse 
   assert.equal((await getSettings()).email, "autre@example.com");
 });
 function paypalTestConfig() {
+  process.env.PAYMENT_PROVIDER = "paypal";
   process.env.PAYPAL_CLIENT_ID = "test-only-client-id"; process.env.PAYPAL_CLIENT_SECRET = "test-only-client-secret";
   process.env.PAYPAL_WEBHOOK_ID = "test-only-webhook-id"; process.env.PAYPAL_MODE = "sandbox"; process.env.PUBLIC_SITE_URL = "https://example.com";
 }
@@ -612,4 +616,222 @@ test("la préparation distingue configuration, prix validés et tâche de rappel
   assert.equal(ready.reminders.recent, true);
   assert.equal(ready.catalog.items.some(item => item.variantId === service.variants[0].id && item.pricePending), false);
   assert.equal(bookingReadiness([service], employees, initialSettings, { at: Date.now(), configured: false, sent: 0, failed: 0 }).reminders.recent, false);
+});
+
+function sumupTestConfig() {
+  process.env.PAYMENT_PROVIDER = "sumup"; process.env.SUMUP_API_KEY = "test-only-sumup-key";
+  process.env.SUMUP_MERCHANT_CODE = "MTEST123"; process.env.SUMUP_MODE = "test"; process.env.PUBLIC_SITE_URL = "https://example.com";
+}
+async function pendingSumUp() {
+  sumupTestConfig();
+  const service = (await one<Service>("services", "knotless"))!;
+  await saveContent("services", { ...service, deposit: { type: "fixed", value: 1000 } });
+  return createBooking(booking());
+}
+const checkoutId = "b06322ef-4c67-44c3-bd87-354c2ee4fd77";
+const transactionId = "3c0ce053-f55c-49d4-9d4c-e62c0fd56c7d";
+async function mockSumUp(operation: (mock: { requests: { url: string; method: string; body: Record<string, unknown> }[]; changes: Record<string, unknown> }) => Promise<void>) {
+  const original = globalThis.fetch;
+  const requests: { url: string; method: string; body: Record<string, unknown> }[] = [];
+  const changes: Record<string, unknown> = {};
+  let reference = "";
+  globalThis.fetch = async (url, options) => {
+    const path = String(url); const method = options?.method || "GET";
+    const body = options?.body ? JSON.parse(String(options.body)) : {};
+    requests.push({ url: path, method, body });
+    assert.equal(new Headers(options?.headers).get("authorization"), "Bearer test-only-sumup-key");
+    if (path === "https://api.sumup.com/v1/merchants/MTEST123") return Response.json({ merchant_code: "MTEST123", default_currency: "EUR", sandbox: changes.sandbox ?? true });
+    if (path === "https://api.sumup.com/v0.1/checkouts" && method === "POST") {
+      reference = String(body.checkout_reference);
+      if (changes.creationError) return Response.json({}, { status: 503 });
+      return Response.json({ id: checkoutId, checkout_reference: reference, amount: 10, currency: "EUR", merchant_code: "MTEST123", status: "PENDING", hosted_checkout_url: changes.url || "https://checkout.sumup.com/pay/" + checkoutId });
+    }
+    if (path === "https://api.sumup.com/v0.1/checkouts/" + checkoutId) return Response.json({
+      id: checkoutId, checkout_reference: reference, amount: 10, currency: "EUR", merchant_code: "MTEST123", status: changes.paid ? "PAID" : "PENDING",
+      transaction_id: transactionId, ...changes.checkout as object,
+    });
+    if (path === "https://api.sumup.com/v2.1/merchants/MTEST123/transactions?id=" + transactionId) return Response.json({ id: transactionId, status: "SUCCESSFUL", amount: 10, currency: "EUR", merchant_code: "MTEST123", ...changes.transaction as object });
+    throw new Error("Appel fournisseur non simulé : " + path);
+  };
+  try { await operation({ requests, changes }); } finally { globalThis.fetch = original; }
+}
+
+test("carte et Apple Pay sont sélectionnés sans ouvrir les acomptes avant configuration", async () => {
+  assert.equal((await publicCatalog()).bookingPaymentProvider, "sumup");
+  assert.equal(bookingPaymentsConfigured(), false);
+  sumupTestConfig(); assert.equal(sumupConfigured(), true); assert.equal(bookingPaymentsConfigured(), true);
+  process.env.DEMO_MODE = "true"; process.env.SUMUP_MODE = "live"; assert.equal(bookingPaymentsConfigured(), false);
+  process.env.SUMUP_MODE = "test"; assert.equal(bookingPaymentsConfigured(), true);
+  process.env.PAYMENT_PROVIDER = "inconnu"; assert.equal(bookingPaymentsConfigured(), false);
+});
+
+test("le mode SumUp test refuse un profil réel avant de créer un paiement", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes, requests }) => {
+    changes.sandbox = false;
+    await assert.rejects(sumupCheckoutSession(saved), /profil SumUp/);
+    assert.equal(requests.some(request => request.method === "POST"), false);
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).data.sumupCheckoutId, undefined);
+});
+
+test("le paiement hébergé SumUp réserve exactement 10 EUR avec expiration et retour privé", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ requests }) => {
+    assert.equal(await bookingCheckoutSession(saved), "https://checkout.sumup.com/pay/" + checkoutId);
+    const payload = requests.find(request => request.method === "POST")!.body;
+    assert.equal(payload.amount, 10); assert.equal(payload.currency, "EUR"); assert.equal(payload.merchant_code, "MTEST123");
+    assert.equal(payload.checkout_reference, saved.id); assert.deepEqual(payload.hosted_checkout, { enabled: true });
+    assert.equal(payload.valid_until, new Date(saved.expires_at!).toISOString());
+    assert.equal(payload.return_url, "https://example.com/api/payments/sumup/webhook");
+    const redirect = new URL(String(payload.redirect_url)); assert.equal(redirect.searchParams.get("access"), saved.token);
+    const updated = await readBooking(saved.id, saved.token);
+    assert.equal(updated.status, "pending_payment"); assert.equal(updated.data.sumupCheckoutId, checkoutId);
+    assert.equal(updated.data.sumupMode, "test"); assert.equal(updated.data.depositPaid, false);
+    assert.equal((await (await db()).query("SELECT id FROM notifications WHERE booking_id=$1", [saved.id])).rows.length, 0);
+  });
+});
+
+test("un lien de paiement SumUp externe ou non sécurisé est refusé", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes }) => {
+    for (const url of ["https://checkout.sumup.com.evil.test/pay/id", "http://checkout.sumup.com/pay/id", "https://user:password@checkout.sumup.com/pay/id"]) {
+      changes.url = url; await assert.rejects(sumupCheckoutSession(saved), /Lien de paiement SumUp invalide/);
+    }
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).data.paymentUrl, undefined);
+});
+
+test("un callback SumUp seul ne confirme rien puis une transaction vérifiée confirme une seule fois", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes, requests }) => {
+    await sumupCheckoutSession(saved);
+    const event = JSON.stringify({ event_type: "CHECKOUT_STATUS_CHANGED", id: checkoutId, status: "PAID" });
+    await handleSumUpWebhook(event);
+    assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+    assert.equal(requests.some(request => request.url.includes("/transactions?")), false);
+    changes.paid = true;
+    await Promise.all([handleSumUpWebhook(event), verifySumUpPayment(saved.id, saved.token)]);
+    await handleSumUpWebhook(event);
+  });
+  const paid = await readBooking(saved.id, saved.token);
+  assert.equal(paid.status, "confirmed"); assert.equal(paid.data.depositPaid, true); assert.equal(paid.data.sumupTransactionId, transactionId);
+  assert.equal(paid.data.depositPolicy, depositPolicy); assert.equal(paid.data.price - paid.data.deposit, 5000);
+  assert.equal((await (await db()).query("SELECT id FROM payment_events")).rows.length, 1);
+  assert.equal((await (await db()).query("SELECT id FROM notifications WHERE booking_id=$1", [saved.id])).rows.length, 2);
+});
+
+test("la vérification SumUp refuse montant, devise, marchand, référence et transaction incorrects", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes }) => {
+    await sumupCheckoutSession(saved); changes.paid = true;
+    for (const checkout of [{ amount: 9.99 }, { amount: 10.001 }, { currency: "USD" }, { merchant_code: "MAUTRE12" }, { checkout_reference: "AUTRE-RDV" }, { id: "AUTRE-CHECKOUT" }]) {
+      changes.checkout = checkout; await assert.rejects(verifySumUpPayment(saved.id, saved.token));
+    }
+    changes.checkout = {};
+    for (const transaction of [{ amount: 9.99 }, { currency: "USD" }, { merchant_code: "MAUTRE12" }, { id: "AUTRE-TRANSACTION" }, { status: "FAILED" }, { status: "REFUNDED" }]) {
+      changes.transaction = transaction; await assert.rejects(verifySumUpPayment(saved.id, saved.token));
+    }
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).status, "pending_payment");
+  assert.equal((await (await db()).query("SELECT id FROM payment_events")).rows.length, 0);
+});
+
+test("un paiement SumUp tardif avec conflit exige une vérification salon sans doubler le créneau", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes }) => {
+    await sumupCheckoutSession(saved);
+    await (await db()).query("UPDATE bookings SET expires_at=$2 WHERE id=$1", [saved.id, Date.now() - 1000]);
+    await saveContent("services", { ...initialServices.find(item => item.id === "cornrows")!, deposit: { type: "none", value: 0 } });
+    await createBooking(booking({ serviceId: "cornrows", variantId: "standard" }));
+    changes.paid = true; await verifySumUpPayment(saved.id, saved.token);
+  });
+  const late = await readBooking(saved.id, saved.token);
+  assert.equal(late.status, "cancelled"); assert.equal(late.data.depositPaid, true); assert.equal(late.data.paymentReviewRequired, true);
+  assert.equal((await (await db()).query("SELECT id FROM notifications WHERE booking_id=$1", [saved.id])).rows.length, 0);
+});
+
+test("un callback SumUp inconnu ou malformé ne contacte pas le fournisseur", async () => {
+  await mockSumUp(async ({ requests }) => {
+    await handleSumUpWebhook(JSON.stringify({ event_type: "FUTURE_EVENT", id: "unrelated" }));
+    await handleSumUpWebhook(JSON.stringify({ event_type: "CHECKOUT_STATUS_CHANGED", id: randomUUID() }));
+    await assert.rejects(handleSumUpWebhook("null"), /invalide/);
+    await assert.rejects(handleSumUpWebhook(JSON.stringify({ event_type: "CHECKOUT_STATUS_CHANGED", id: "../me" })), /invalide/);
+    assert.equal(requests.length, 0);
+  });
+});
+
+test("le retour SumUp exige le lien privé et relit le paiement avant toute confirmation", async () => {
+  const { NextRequest } = await import("next/server");
+  const { GET } = await import("../src/app/api/payments/sumup/return/route");
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes }) => {
+    await sumupCheckoutSession(saved);
+    const query = new URLSearchParams({ bookingId: saved.id, access: "x".repeat(43), payment: "success" });
+    assert.equal((await GET(new NextRequest("https://example.com/api/payments/sumup/return?" + query))).status, 404);
+    query.set("access", saved.token);
+    const pending = await GET(new NextRequest("https://example.com/api/payments/sumup/return?" + query));
+    assert.equal(new URL(pending.headers.get("location")!).searchParams.get("payment"), "pending");
+    assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+    changes.paid = true;
+    const success = await GET(new NextRequest("https://example.com/api/payments/sumup/return?" + query));
+    assert.equal(success.status, 303);
+    const location = new URL(success.headers.get("location")!);
+    assert.equal(location.origin, "https://example.com"); assert.equal(location.searchParams.get("token"), saved.token);
+    assert.equal(location.searchParams.get("payment"), "success");
+  });
+});
+
+test("un échec de création SumUp annule la retenue sans envoyer de confirmation", async () => {
+  sumupTestConfig();
+  const service = (await one<Service>("services", "knotless"))!; await saveContent("services", { ...service, deposit: { type: "fixed", value: 1000 } });
+  const { NextRequest } = await import("next/server"); const { POST } = await import("../src/app/api/bookings/route");
+  await mockSumUp(async ({ changes }) => {
+    changes.creationError = true;
+    const response = await POST(new NextRequest("https://example.com/api/bookings", { method: "POST", headers: { origin: "https://example.com", host: "example.com", "Content-Type": "application/json" }, body: JSON.stringify(booking()) }));
+    assert.equal(response.status, 502);
+  });
+  const rows = (await (await db()).query<{ status: string }>("SELECT status FROM bookings")).rows;
+  assert.equal(rows.length, 1); assert.equal(rows[0].status, "cancelled");
+  assert.equal((await (await db()).query("SELECT id FROM notifications")).rows.length, 0);
+});
+
+test("le callback SumUp confirmé déclenche une seule confirmation e-mail et conserve le rappel futur", async () => {
+  const saved = await pendingSumUp();
+  const { NextRequest } = await import("next/server");
+  const { POST } = await import("../src/app/api/payments/sumup/webhook/route");
+  let delivered = 0;
+  await mockSumUp(async ({ changes }) => {
+    await sumupCheckoutSession(saved); changes.paid = true;
+    process.env.RESEND_API_KEY = "test-only-resend-key"; process.env.EMAIL_FROM = "salon@example.com";
+    const paymentFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      if (String(url) !== "https://api.resend.com/emails") return paymentFetch(url, options);
+      const email = JSON.parse(String(options?.body));
+      assert.deepEqual(email.to, ["test@example.com"]); assert.match(email.text, /Acompte payé : 10\s*€/); assert.ok(email.text.includes(depositCancellationNotice));
+      delivered++; return Response.json({ id: "simulated-confirmation" }, { status: 201 });
+    };
+    try {
+      for (let repeat = 0; repeat < 2; repeat++) {
+        const response = await POST(new NextRequest("https://example.com/api/payments/sumup/webhook", { method: "POST", body: JSON.stringify({ event_type: "CHECKOUT_STATUS_CHANGED", id: checkoutId }) }));
+        assert.equal(response.status, 204);
+      }
+    } finally { globalThis.fetch = paymentFetch; }
+  });
+  assert.equal(delivered, 1);
+  const rows = (await (await db()).query<{ kind: string; status: string }>("SELECT kind,status FROM notifications WHERE booking_id=$1", [saved.id])).rows;
+  assert.equal(rows.filter(row => row.kind.startsWith("confirmation-") && row.status === "sent").length, 1);
+  assert.equal(rows.filter(row => row.kind.startsWith("reminder-") && row.status === "pending").length, 1);
+});
+
+test("SumUp accepte l’historique officiel sans transaction_id et refuse deux références contradictoires", async () => {
+  const saved = await pendingSumUp();
+  await mockSumUp(async ({ changes }) => {
+    await sumupCheckoutSession(saved); changes.paid = true;
+    changes.checkout = { transactions: [{ id: "OTHER-TRANSACTION", status: "SUCCESSFUL" }] };
+    await assert.rejects(verifySumUpPayment(saved.id, saved.token), /transaction SumUp/);
+    assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+    changes.checkout = { transaction_id: undefined, transactions: [{ id: transactionId, status: "SUCCESSFUL" }] };
+    assert.equal(await verifySumUpPayment(saved.id, saved.token), "confirmed");
+  });
 });

@@ -11,7 +11,7 @@ Cette méthode fonctionne sur votre ordinateur Windows, macOS ou Linux. Elle ne 
 
 Le lanceur affiche l’adresse locale du site. Cette adresse fonctionne **sur l’ordinateur où le fichier a été lancé**. Une adresse locale d’un serveur cloud ne permet pas d’ouvrir ce serveur depuis votre PC.
 
-Le lanceur active le mode démonstration : cet aperçu permet de parcourir le catalogue et les tarifs, utiliser le panier et ouvrir l’administration. La confirmation d’une réservation avec acompte attend une connexion PayPal sandbox ; aucun paiement réel n’est activé dans cet aperçu. Les données restent sur votre ordinateur.
+Le lanceur active le mode démonstration : cet aperçu permet de parcourir le catalogue et les tarifs, utiliser le panier et ouvrir l’administration. La confirmation d’une réservation avec acompte attend une connexion SumUp Sandbox ; aucun paiement réel n’est activé dans cet aperçu. Les données restent sur votre ordinateur.
 
 ### Voir la dernière mise à jour
 
@@ -47,7 +47,7 @@ Le mot de passe de gestion est créé dans le fichier privé `.env.local`, à la
 
 Si `.env.local` existe déjà avec les réglages e-mail, le lanceur complète maintenant uniquement le mot de passe absent ou vide. Les autres réglages et un mot de passe existant sont conservés. Lire le mot de passe localement et le saisir uniquement dans l’administration ; garder ce fichier hors des captures d’écran. Pour une ancienne version du lanceur, ajouter une ligne `ADMIN_PASSWORD=` suivie d’un mot de passe personnel unique d’au moins 16 caractères, puis redémarrer le site.
 
-Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend ou PayPal, aucun e-mail réel ni paiement d'acompte n'est effectué.
+Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend ou SumUp, aucun e-mail réel ni paiement d'acompte n'est effectué.
 
 ## GitHub et lien public
 

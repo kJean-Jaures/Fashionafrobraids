@@ -274,9 +274,9 @@ test("la préparation du salon enregistre les consignes et valide un tarif par v
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Préparer les réservations", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Acompte de 10 €", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Carte bancaire & Apple Pay · 10 €", exact: true })).toBeVisible();
   await expect(page.getByText("Envoi à activer", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Un compte personnel seul ne suffit pas/)).toBeVisible();
+  await expect(page.getByText(/À connecter : compte SumUp du salon/)).toBeVisible();
   await page.getByLabel("Rappel avant le rendez-vous (heures)").fill("48");
   await page.getByLabel("Pause entre deux clientes (minutes)").fill("15");
   await page.getByLabel("Consignes avant le rendez-vous").fill("Consigne de test : apportez vos mèches.");
@@ -342,4 +342,22 @@ test("la tâche de rappel exige son secret et son dernier passage apparaît dans
   expect(data.readiness.reminders.secretConfigured).toBe(true);
   expect(data.readiness.reminders.lastRun.at).toBeGreaterThan(Date.now()-60000);
   expect(data.readiness.reminders.recent).toBe(false);
+});
+
+test("la préparation carte et Apple Pay montre le guide SumUp sans annoncer une connexion absente", async ({ page, request }) => {
+  const catalog = await (await request.get("/api/catalog")).json();
+  expect(catalog.bookingPaymentProvider).toBe("sumup"); expect(catalog.bookingPaymentsEnabled).toBe(false);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin");
+  await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters");
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await page.getByRole("button", { name: "Préparer les réservations", exact: true }).last().click();
+  const payment = page.locator(".admin-panel").filter({ has: page.getByRole("heading", { name: /Carte bancaire & Apple Pay/ }) });
+  await expect(payment.locator(".status-pill")).toHaveText("À connecter");
+  await payment.getByText("Les étapes pour connecter carte et Apple Pay", { exact: true }).click();
+  await expect(payment.getByText(/SUMUP_API_KEY/)).toBeVisible();
+  await expect(payment.getByText(/profil Sandbox/).first()).toBeVisible();
+  await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Paramètres", exact: true }).click();
+  await expect(page.getByText("Carte bancaire & Apple Pay · 10 €", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

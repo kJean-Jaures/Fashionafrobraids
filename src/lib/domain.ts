@@ -4,7 +4,7 @@ import { db, transaction, all, one, getSettings, type Connection } from "./db";
 import { possibleSlots, timestamp, validDate } from "./time";
 import type { BookingInput, OrderInput } from "./validation";
 import { queueBookingEmails } from "./notifications";
-import { paypalConfigured } from "./paypal-config";
+import { bookingPaymentsConfigured } from "./payment-config";
 import { depositPolicy, depositCancellationNotice } from "./booking-policy";
 
 export class DomainError extends Error { constructor(message: string, public status = 400) { super(message); } }
@@ -14,7 +14,8 @@ export type BookingData = {
   name: string; email: string; phone: string; note: string; serviceId: string;
   service: string; variantId: string; size: string; length: string; options: string[];
   price: number; duration: number; deposit: number; depositPaid: boolean; employee: string;
-  paymentProvider?: "paypal"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  paymentProvider?: "paypal" | "sumup"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  sumupCheckoutId?: string; sumupTransactionId?: string; sumupMerchantCode?: string; sumupMode?: string; paymentReviewRequired?: boolean;
   depositPolicy?: typeof depositPolicy;
   durationEstimated?: boolean;
 };
@@ -68,7 +69,7 @@ export async function createBooking(input: BookingInput) {
     const service = await one<Service>("services", input.serviceId, connection);
     if (!service) throw new DomainError("Cette prestation n’existe pas.");
     const selected = selection(service, input.variantId, input.optionIds);
-    if (selected.deposit && !paypalConfigured()) throw new DomainError("L’acompte en ligne n’est pas encore activé. Appelez le salon pour réserver cette prestation.", 503);
+    if (selected.deposit && !bookingPaymentsConfigured()) throw new DomainError("L’acompte en ligne n’est pas encore activé. Appelez le salon pour réserver cette prestation.", 503);
     const settings = await getSettings(connection);
     const staff = (await all<Employee>("employees", connection)).filter(item => item.active && (!item.serviceIds.length || item.serviceIds.includes(service.id)) && (input.employeeId === "any" || input.employeeId === item.id));
     for (const employee of staff) {
