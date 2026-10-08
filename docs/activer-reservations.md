@@ -6,7 +6,7 @@ Pour comprendre les rubriques et préparer l’équipe, consulter [le guide d’
 
 ## Préparer les connexions avant la mise en ligne
 
-Le propriétaire a choisi carte bancaire et Apple Pay, avec réception des encaissements sur son compte à La Banque Postale. Le compte **SumUp du salon reste à créer**. L’intégration utilise une page de paiement hébergée et ne collecte pas les cartes dans le site.
+Le propriétaire a choisi carte bancaire et Apple Pay, avec réception des encaissements sur son compte à La Banque Postale. Il a confirmé la création de son compte SumUp le **8 octobre 2026**. La validation du profil, l’activation des paiements en ligne, le compte de versement et les identifiants de test restent à vérifier. L’intégration utilise une page de paiement hébergée et ne collecte pas les cartes dans le site.
 
 Le choix a été reconfirmé le **8 octobre 2026** après comparaison avec le virement manuel. Aucun e-mail d’instructions de paiement ou de réservation en attente n’est envoyé. Le serveur vérifie l’encaissement de l’acompte auprès de SumUp, confirme le rendez-vous, envoie la confirmation puis programme le rappel. Cette validation n’attend pas le versement ultérieur de SumUp sur le compte à La Banque Postale ; ses délais dépendent du compte marchand. Aucun bouton de validation manuelle de virement n’est ajouté à ce parcours.
 
@@ -18,7 +18,7 @@ Le propriétaire a confirmé l’accès à l’administration et la réception d
 
 ## Carte bancaire et Apple Pay avec SumUp
 
-1. Créer un compte pour le salon sur [SumUp](https://www.sumup.com/fr-fr/paiements-en-ligne/). Renseigner les informations du salon et le compte de réception à La Banque Postale **chez SumUp**, puis faire valider le profil. Vérifier auprès de SumUp l’activation des paiements en ligne, les frais et les délais de versement. Le nouveau site utilise un paiement en ligne.
+1. Dans le compte du salon déjà créé sur [SumUp](https://www.sumup.com/fr-fr/paiements-en-ligne/), vérifier les informations du salon et renseigner le compte de réception à La Banque Postale **chez SumUp**, puis faire valider le profil. Vérifier auprès de SumUp l’activation des paiements en ligne, les frais et les délais de versement. Le nouveau site utilise un paiement en ligne.
 2. Dans le tableau de bord SumUp, ouvrir les **réglages développeur → Sandboxes** et créer un profil marchand Sandbox. La [documentation de test](https://developer.sumup.com/online-payments/testing/) décrit aussi l’inscription à un compte développeur qui démarre avec un Sandbox.
 3. Pour ce profil, relever le **code marchand** et créer sa **clé API privée** dans **For Developers → Toolkit → API Keys**. La clé publique ne suffit pas. [Guide officiel des clés](https://developer.sumup.com/tools/authorization/api-keys/).
 4. Dans les paramètres privés du serveur, compléter :
