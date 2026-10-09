@@ -19,7 +19,23 @@ export function SiteProvider({ catalog: initial, children }: { catalog: Catalog;
       if (Array.isArray(saved)) setSaved(saved.filter(item => typeof item.id === "string" && typeof item.token === "string").slice(0, 30));
     } catch { /* Le stockage n’est pas toujours disponible en navigation privée. */ }
     setReady(true);
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if ("serviceWorker" in navigator) {
+      const local = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname) || window.location.hostname.endsWith(".localhost");
+      if (local || process.env.NODE_ENV !== "production") {
+        // Un ancien aperçu peut avoir installé la page hors connexion. Retirer
+        // uniquement notre worker et nos caches, sans toucher aux données client.
+        void (async () => {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.filter(registration =>
+            [registration.active, registration.waiting, registration.installing].some(worker => worker && new URL(worker.scriptURL).pathname === "/sw.js")
+          ).map(registration => registration.unregister()));
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.filter(key => key.startsWith("fab-static-")).map(key => caches.delete(key)));
+          }
+        })().catch(() => {});
+      } else navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {});
+    }
   }, []);
   useEffect(() => { if (ready) try { localStorage.setItem("fab-cart", JSON.stringify(cart)); } catch {} }, [cart, ready]);
   useEffect(() => { if (ready) try { localStorage.setItem("fab-bookings", JSON.stringify(savedBookings)); } catch {} }, [savedBookings, ready]);
