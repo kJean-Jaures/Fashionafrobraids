@@ -25,6 +25,8 @@ import { handleSumUpWebhook, sumupCheckoutSession, verifySumUpPayment } from "..
 import { bankTransferQrPayload, BankTransferQrError } from "../src/lib/bank-transfer-qr";
 import jsQR from "jsqr";
 import sharp from "sharp";
+import { mollieConfigured } from "../src/lib/mollie-config";
+import { mollieCheckoutSession, verifyMolliePayment, handleMollieWebhook } from "../src/lib/mollie-payments";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
@@ -32,7 +34,7 @@ const booking = (patch = {}) => bookingSchema.parse({ serviceId: "knotless", var
 const order = (items = [{ productId: "bonnet", quantity: 1 }], patch = {}) => orderSchema.parse({ name: "Cliente Test", email: "test@example.com", phone: "0612345678", consent: true, requestId: randomUUID(), items, ...patch });
 before(async () => { directory = await mkdtemp(join(tmpdir(), "fab-domain-tests-")); process.env.DATA_DIR = directory; delete process.env.DATABASE_URL; delete process.env.RESEND_API_KEY; delete process.env.PAYPAL_CLIENT_SECRET; await db(); });
 beforeEach(async () => {
-  for (const name of ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID", "PAYPAL_MODE", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM", "SUMUP_API_KEY", "SUMUP_MERCHANT_CODE", "SUMUP_MODE", "PAYMENT_PROVIDER", "DEMO_MODE"]) delete process.env[name];
+  for (const name of ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID", "PAYPAL_MODE", "PUBLIC_SITE_URL", "RESEND_API_KEY", "EMAIL_FROM", "SUMUP_API_KEY", "SUMUP_MERCHANT_CODE", "SUMUP_MODE", "PAYMENT_PROVIDER", "DEMO_MODE", "MOLLIE_API_KEY", "MOLLIE_MODE"]) delete process.env[name];
   const connection = await db();
   for (const table of ["notifications", "bookings", "orders", "blocks", "payment_events"]) await connection.query(`DELETE FROM ${table}`);
   await connection.query("DELETE FROM automation_runs");
@@ -997,4 +999,223 @@ test('des coordonnées non encodables gardent la réservation en attente avec un
   const response=await GET(new NextRequest(`https://example.com/api/bookings/${saved.id}/transfer-qr?token=${saved.token}`),{params:Promise.resolve({id:saved.id})});
   assert.equal(response.status,400);assert.match((await response.json()).error,/coordonnées de votre réservation/);
   assert.equal((await readBooking(saved.id,saved.token)).status,'pending_payment');
+});
+
+const mollieId = 'tr_FASHION1234';
+const mollieProfile = 'pfl_FASHION1234';
+function mollieTestConfig() {
+  process.env.PAYMENT_PROVIDER = 'mollie'; process.env.MOLLIE_API_KEY = 'test-only-mollie-key';
+  process.env.MOLLIE_MODE = 'test'; process.env.PUBLIC_SITE_URL = 'https://example.com';
+}
+async function pendingMollie() {
+  mollieTestConfig();
+  const service = (await one<Service>('services', 'knotless'))!;
+  await saveContent('services', { ...service, deposit: { type: 'fixed', value: 1000 } });
+  return createBooking(booking());
+}
+async function mockMollie(run: (context: { changes: Record<string, unknown>; requests: { url: string; body?: Record<string, unknown>; headers: Headers }[] }) => Promise<void>) {
+  const original = globalThis.fetch; const changes: Record<string, unknown> = {};
+  const requests: { url: string; body?: Record<string, unknown>; headers: Headers }[] = []; let reference = '';
+  globalThis.fetch = async (url, options) => {
+    const address = String(url); const headers = new Headers(options?.headers);
+    const body = options?.body ? JSON.parse(String(options.body)) as Record<string, unknown> : undefined;
+    requests.push({ url: address, body, headers });
+    assert.equal(headers.get('authorization'), 'Bearer test-only-mollie-key');
+    assert.equal(options?.cache, 'no-store');
+    assert.ok(address.startsWith('https://api.mollie.com/v2/payments'));
+    if (changes.unavailable) return Response.json({}, { status: 503 });
+    if (body) reference = (body.metadata as { bookingId: string }).bookingId;
+    return Response.json({ resource: 'payment', id: mollieId, profileId: mollieProfile, mode: 'test',
+      status: changes.status || 'open', amount: { currency: 'EUR', value: '10.00' },
+      metadata: { bookingId: reference, purpose: 'booking-deposit' }, method: 'applepay',
+      _links: { checkout: { href: changes.url || 'https://www.mollie.com/checkout/select-method/test-deposit' } },
+      ...(changes.payment as object || {}) });
+  };
+  try { await run({ changes, requests }); } finally { globalThis.fetch = original; }
+}
+
+test('Mollie exige une adresse publique HTTPS et bloque le mode réel en démonstration', async () => {
+  assert.equal(mollieConfigured(), false); mollieTestConfig(); assert.equal(mollieConfigured(), true);
+  assert.equal(bookingPaymentsConfigured(), true);
+  for (const url of ['http://example.com', 'https://localhost:3000', 'https://127.0.0.1', 'https://[::1]', 'https://user:secret@example.com']) {
+    process.env.PUBLIC_SITE_URL = url; assert.equal(mollieConfigured(), false);
+  }
+  process.env.PUBLIC_SITE_URL = 'https://example.com'; process.env.MOLLIE_MODE = 'live'; process.env.DEMO_MODE = 'true';
+  assert.equal(mollieConfigured(), false); process.env.MOLLIE_MODE = 'test'; assert.equal(mollieConfigured(), true);
+  await saveSettings({ ...initialSettings, bookingPaymentMethod: 'mollie' });
+  process.env.PAYMENT_PROVIDER = 'sumup'; const publicData = await publicCatalog();
+  assert.equal(publicData.bookingPaymentProvider, 'mollie'); assert.equal(publicData.bookingPaymentsEnabled, true);
+  assert.equal(JSON.stringify(publicData).includes('test-only-mollie-key'), false);
+});
+
+test('le checkout Mollie prépare exactement les 10 euros côté serveur avec carte et Apple Pay', async () => {
+  const saved = await pendingMollie();
+  await mockMollie(async ({ requests }) => {
+    const url = await bookingCheckoutSession(saved); assert.match(url!, /^https:\/\/www\.mollie\.com\/checkout\//);
+    assert.equal(requests.length, 1);
+    const request = requests[0]; assert.equal(request.headers.get('Idempotency-Key'), 'fashion-deposit-' + saved.id);
+    assert.deepEqual(request.body?.amount, { currency: 'EUR', value: '10.00' });
+    assert.deepEqual(request.body?.method, ['creditcard', 'applepay']);
+    assert.equal(request.body?.testmode, undefined); assert.equal(request.body?.profileId, undefined);
+    assert.equal(request.body?.webhookUrl, 'https://example.com/api/payments/mollie/webhook');
+    const redirect = new URL(String(request.body?.redirectUrl)); assert.equal(redirect.searchParams.get('access'), saved.token);
+    const updated = await readBooking(saved.id, saved.token);
+    assert.equal(updated.data.molliePaymentId, mollieId); assert.equal(updated.data.mollieProfileId, mollieProfile);
+    assert.equal(updated.data.depositPaid, false); assert.equal(updated.status, 'pending_payment');
+    assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 0);
+  });
+});
+
+test('Mollie refuse les liens détournés et un profil, mode ou montant de création incorrect', async () => {
+  const saved = await pendingMollie();
+  await mockMollie(async ({ changes }) => {
+    for (const url of ['https://www.mollie.com.evil.test/checkout/id', 'http://www.mollie.com/checkout/id', 'https://user:secret@www.mollie.com/checkout/id', 'https://www.mollie.com/other/id']) {
+      changes.url = url; await assert.rejects(mollieCheckoutSession(saved), /Lien de paiement Mollie invalide/);
+    }
+    delete changes.url;
+    for (const payment of [{ mode: 'live' }, { amount: { currency: 'EUR', value: '9.99' } }, { profileId: '../profile' }, { metadata: { bookingId: 'OTHER', purpose: 'booking-deposit' } }]) {
+      changes.payment = payment; await assert.rejects(mollieCheckoutSession(saved));
+    }
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).data.paymentUrl, undefined);
+});
+
+test('un faux callback Mollie paid ne confirme rien puis les vérifications concurrentes restent uniques', async () => {
+  const saved = await pendingMollie();
+  await mockMollie(async ({ changes }) => {
+    await mollieCheckoutSession(saved);
+    await handleMollieWebhook('id=' + mollieId + '&status=paid&amount=10.00');
+    assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+    changes.status = 'authorized'; await verifyMolliePayment(saved.id, saved.token);
+    assert.equal((await readBooking(saved.id, saved.token)).status, 'pending_payment');
+    changes.status = 'paid';
+    await Promise.all([handleMollieWebhook('id=' + mollieId), verifyMolliePayment(saved.id, saved.token)]);
+    await handleMollieWebhook('id=' + mollieId);
+  });
+  const paid = await readBooking(saved.id, saved.token);
+  assert.equal(paid.status, 'confirmed'); assert.equal(paid.data.depositPaid, true); assert.equal(paid.data.molliePaymentMethod, 'applepay');
+  assert.equal(paid.data.depositPolicy, depositPolicy); assert.equal(paid.data.price - paid.data.deposit, 5000);
+  assert.equal((await (await db()).query('SELECT id FROM payment_events')).rows.length, 1);
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 2);
+});
+
+test('la preuve Mollie doit correspondre au montant, profil, mode et référence sans remboursement', async () => {
+  const saved = await pendingMollie();
+  await mockMollie(async ({ changes }) => {
+    await mollieCheckoutSession(saved); changes.status = 'paid';
+    for (const payment of [{ id: 'tr_OTHER12345' }, { profileId: 'pfl_OTHER12345' }, { mode: 'live' },
+      { amount: { currency: 'USD', value: '10.00' } }, { amount: { currency: 'EUR', value: '10.001' } },
+      { amount: { currency: 'EUR', value: '9.99' } }, { amount: { currency: 'EUR', value: 10 } },
+      { metadata: { bookingId: saved.id, purpose: 'other-purpose' } },
+      { amountRefunded: { currency: 'EUR', value: '1.00' } }, { amountChargedBack: { currency: 'EUR', value: '10.00' } }]) {
+      changes.payment = payment; await assert.rejects(verifyMolliePayment(saved.id, saved.token));
+    }
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+  assert.equal((await (await db()).query('SELECT id FROM payment_events')).rows.length, 0);
+});
+
+for (const status of ['failed', 'canceled', 'expired']) test('un paiement Mollie ' + status + ' libère le créneau sans confirmation', async () => {
+  const saved = await pendingMollie();
+  await mockMollie(async ({ changes }) => {
+    await mollieCheckoutSession(saved); changes.status = status;
+    assert.equal(await verifyMolliePayment(saved.id, saved.token), 'cancelled');
+    await handleMollieWebhook('id=' + mollieId);
+  });
+  assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+  assert.ok((await availability('knotless', '1-1', future())).includes('08:30'));
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 0);
+});
+
+test('un paiement Mollie tardif ne double pas le planning et peut être déplacé sans second acompte', async () => {
+  const saved = await pendingMollie();
+  await mockMollie(async ({ changes }) => {
+    await mollieCheckoutSession(saved);
+    await (await db()).query('UPDATE bookings SET expires_at=$2 WHERE id=$1', [saved.id, Date.now()-1000]);
+    await saveContent('services', { ...initialServices.find(item => item.id === 'cornrows')!, deposit: { type: 'none', value: 0 } });
+    await createBooking(booking({ serviceId: 'cornrows', variantId: 'standard' }));
+    changes.status = 'paid'; assert.equal(await verifyMolliePayment(saved.id, saved.token), 'cancelled');
+  });
+  const paid = await readBooking(saved.id, saved.token); assert.equal(paid.data.depositPaid, true); assert.equal(paid.data.paymentReviewRequired, true);
+  assert.equal((await (await db()).query('SELECT id FROM notifications WHERE booking_id=$1', [saved.id])).rows.length, 0);
+  await moveBooking(saved.id, future(), '13:30', 'salon');
+  const moved = await readBooking(saved.id, saved.token); assert.equal(moved.status, 'confirmed'); assert.equal(moved.data.deposit, 1000); assert.equal(moved.data.paymentReviewRequired, false);
+});
+
+test('le retour Mollie et la revérification exigent le lien privé et ignorent un succès dans l’URL', async () => {
+  const { NextRequest } = await import('next/server');
+  const { GET } = await import('../src/app/api/payments/mollie/return/route');
+  const { POST } = await import('../src/app/api/bookings/[id]/payment/route');
+  const saved = await pendingMollie();
+  await mockMollie(async ({ changes, requests }) => {
+    await mollieCheckoutSession(saved); const count = requests.length;
+    const query = new URLSearchParams({ bookingId: saved.id, access: 'x'.repeat(43), payment: 'success' });
+    assert.equal((await GET(new NextRequest('https://example.com/api/payments/mollie/return?' + query))).status, 404);
+    assert.equal(requests.length, count); query.set('access', saved.token);
+    const pending = await GET(new NextRequest('https://example.com/api/payments/mollie/return?' + query));
+    assert.equal(new URL(pending.headers.get('location')!).searchParams.get('payment'), 'pending');
+    const ctx = { params: Promise.resolve({ id: saved.id }) };
+    const request = (token: string, origin = 'https://example.com') => new NextRequest('https://example.com/api/bookings/' + saved.id + '/payment', { method: 'POST', headers: { origin, host: 'example.com', 'content-type': 'application/json' }, body: JSON.stringify({ token }) });
+    assert.equal((await POST(request(saved.token, 'https://evil.test'), ctx)).status, 403);
+    assert.equal((await POST(request('x'.repeat(43)), ctx)).status, 404);
+    changes.unavailable = true;
+    const failed = await GET(new NextRequest('https://example.com/api/payments/mollie/return?' + query));
+    assert.equal(new URL(failed.headers.get('location')!).searchParams.get('payment'), 'error');
+    assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+    delete changes.unavailable; changes.status = 'paid';
+    const response = await POST(request(saved.token), ctx); assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, 'confirmed');
+    const success = await GET(new NextRequest('https://example.com/api/payments/mollie/return?' + query));
+    assert.equal(success.status, 303); const url = new URL(success.headers.get('location')!);
+    assert.equal(url.origin, 'https://example.com'); assert.equal(url.searchParams.get('payment'), 'success'); assert.equal(url.searchParams.get('token'), saved.token);
+  });
+});
+
+test('un échec de création Mollie libère la retenue sans envoyer d’e-mail', async () => {
+  mollieTestConfig(); const service = (await one<Service>('services', 'knotless'))!;
+  await saveContent('services', { ...service, deposit: { type: 'fixed', value: 1000 } });
+  const { NextRequest } = await import('next/server'); const { POST } = await import('../src/app/api/bookings/route');
+  await mockMollie(async ({ changes }) => {
+    changes.unavailable = true;
+    const response = await POST(new NextRequest('https://example.com/api/bookings', { method: 'POST', headers: { origin: 'https://example.com', host: 'example.com', 'content-type': 'application/json' }, body: JSON.stringify({ ...booking(), deposit: 1, amount: 1 }) }));
+    assert.equal(response.status, 502);
+  });
+  assert.equal((await (await db()).query('SELECT status FROM bookings')).rows[0].status, 'cancelled');
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 0);
+});
+
+test('le webhook Mollie valide son format et ne consulte pas de paiements inconnus', async () => {
+  const { NextRequest } = await import('next/server'); const { POST } = await import('../src/app/api/payments/mollie/webhook/route');
+  await mockMollie(async ({ requests }) => {
+    for (const body of ['id=../bad', 'id=' + mollieId + '&id=tr_OTHER12345', 'null']) await assert.rejects(handleMollieWebhook(body));
+    await handleMollieWebhook('id=tr_UNKNOWN123'); assert.equal(requests.length, 0);
+    const invalid = await POST(new NextRequest('https://example.com/api/payments/mollie/webhook', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"id":"' + mollieId + '"}' }));
+    assert.equal(invalid.status, 415);
+    const large = await POST(new NextRequest('https://example.com/api/payments/mollie/webhook', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'x'.repeat(10001) }));
+    assert.equal(large.status, 413);
+  });
+});
+
+test('Mollie déclenche une seule confirmation e-mail après paiement et garde le rappel futur', async () => {
+  const saved = await pendingMollie();
+  const { NextRequest } = await import('next/server'); const { POST } = await import('../src/app/api/payments/mollie/webhook/route');
+  let delivered = 0;
+  await mockMollie(async ({ changes }) => {
+    await mollieCheckoutSession(saved); changes.status = 'paid';
+    process.env.RESEND_API_KEY = 'test-only-resend-key'; process.env.EMAIL_FROM = 'salon@example.com';
+    const paymentFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      if (String(url) !== 'https://api.resend.com/emails') return paymentFetch(url, options);
+      const email = JSON.parse(String(options?.body)); assert.deepEqual(email.to, ['test@example.com']);
+      assert.match(email.text, /Acompte payé : 10\s*€/); assert.ok(email.text.includes(depositCancellationNotice));
+      delivered++; return Response.json({ id: 'simulated-mollie-confirmation' }, { status: 201 });
+    };
+    try {
+      for (let i = 0; i < 2; i++) assert.equal((await POST(new NextRequest('https://example.com/api/payments/mollie/webhook', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'id=' + mollieId }))).status, 204);
+    } finally { globalThis.fetch = paymentFetch; }
+  });
+  assert.equal(delivered, 1);
+  const rows = (await (await db()).query<{ kind: string; status: string }>('SELECT kind,status FROM notifications WHERE booking_id=$1', [saved.id])).rows;
+  assert.equal(rows.filter(row => row.kind.startsWith('confirmation-') && row.status === 'sent').length, 1);
+  assert.equal(rows.filter(row => row.kind.startsWith('reminder-') && row.status === 'pending').length, 1);
 });

@@ -28,7 +28,7 @@ L’espace utilise actuellement un accès administrateur commun par mot de passe
 | Galerie | Ajouter, modifier ou masquer une photo. Identifier les photos d’inspiration. |
 | Avis | Publier ou masquer des avis authentiques. |
 | Messages | Consulter les demandes reçues depuis le formulaire de contact et les marquer comme lues. |
-| Paramètres | Modifier les coordonnées, réseaux sociaux, informations légales et certains réglages de réservation. |
+| Paramètres | Modifier les coordonnées, réseaux sociaux, informations légales et le mode de paiement, dont carte et Apple Pay via Mollie. |
 
 ## Avant les premières réservations
 
@@ -43,13 +43,13 @@ Une modification d’horaires ou d’équipe incompatible avec un rendez-vous ex
 
 ## Paiements et confirmations
 
-Le mode choisi est le virement direct : enregistrer les coordonnées bancaires dans l’administration, puis vérifier la réception de l’acompte dans sa banque. Aucun compte marchand ni clé de paiement n’est nécessaire pour ce mode. Voir [le guide d’activation](activer-reservations.md).
+Le mode choisi est désormais **Mollie : carte bancaire et Apple Pay**. Son compte est créé et en cours d’activation. Dans **Paramètres → Paiement de l’acompte**, sélectionner Mollie puis enregistrer. Après paiement vérifié par l’API, le rendez-vous est confirmé automatiquement ; le bouton « Acompte reçu » reste réservé aux virements manuels. Voir [le guide Mollie](mollie-apple-pay.md). Voir [le guide d’activation](activer-reservations.md).
 
 Une réservation avec acompte devient **Confirmée** après vérification du paiement. Exemple pour une prestation de 80 € : 10 € encaissés à la réservation, puis 70 € à régler au salon. Un rendez-vous « Acompte en attente » ne signifie pas que le paiement est acquis.
 
 L’acompte n’est pas remboursable si la cliente annule. Annuler depuis l’administration libère le créneau et arrête les messages futurs ; cela ne déclenche pas de remboursement automatique. Si le salon annule ou si un paiement a été reçu sans rendez-vous confirmé, traiter la situation directement avec la cliente et sa banque.
 
-Les commandes de la boutique utilisent actuellement le paiement au retrait au salon. Les acomptes de réservation utilisent le virement direct validé par le salon.
+Les commandes de la boutique utilisent actuellement le paiement au retrait au salon. Les acomptes de réservation utilisent le mode choisi dans les paramètres, notamment Mollie ou le virement direct validé par le salon.
 
 ## E-mails et rappels
 

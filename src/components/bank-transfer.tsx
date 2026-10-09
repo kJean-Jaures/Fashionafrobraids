@@ -4,30 +4,32 @@ import { Download } from "lucide-react";
 import type { Settings } from "@/lib/catalog";
 import { money } from "@/lib/catalog";
 import type { Booking } from "@/lib/domain";
+import type { PaymentProvider } from "@/lib/payment-config";
 import { formatDate, formatTime } from "@/lib/time";
 import { useSite } from "./provider";
 import { Field, FormError, SubmitButton, api } from "./ui";
 
-export function BankTransferSettings({ settings, onSaved }: { settings: Settings; onSaved: () => Promise<void> }) {
-  const [draft, setDraft] = useState({ ...settings, bookingPaymentMethod: settings.bookingPaymentMethod || "bank_transfer" as const });
+export function BankTransferSettings({ settings, activeProvider, onSaved }: { settings: Settings; activeProvider: PaymentProvider; onSaved: () => Promise<void> }) {
+  const [draft, setDraft] = useState({ ...settings, bookingPaymentMethod: settings.bookingPaymentMethod || activeProvider });
   const [pending, setPending] = useState(false); const [error, setError] = useState("");
-  useEffect(() => { setDraft({ ...settings, bookingPaymentMethod: settings.bookingPaymentMethod || "bank_transfer" }); }, [settings]);
+  useEffect(() => { setDraft({ ...settings, bookingPaymentMethod: settings.bookingPaymentMethod || activeProvider }); }, [settings, activeProvider]);
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setPending(true); setError("");
     try { await api("/api/admin/settings", { method: "PUT", body: JSON.stringify(draft) }); await onSaved(); }
     catch (error) { setError((error as Error).message); } finally { setPending(false); }
   }
   return <form className="admin-panel" onSubmit={save}>
-    <h2>Virement direct sur votre compte</h2>
-    <Field label="Mode de paiement de l’acompte"><select value={draft.bookingPaymentMethod} onChange={e => setDraft({ ...draft, bookingPaymentMethod: e.target.value as Settings["bookingPaymentMethod"] & string })}><option value="bank_transfer">Virement bancaire · vérification par le salon</option><option value="sumup">Carte et Apple Pay · SumUp</option><option value="paypal">PayPal</option></select></Field>
-    <div className="form-grid">
+    <h2>Paiement de l’acompte</h2>
+    <Field label="Mode de paiement de l’acompte"><select value={draft.bookingPaymentMethod} onChange={e => setDraft({ ...draft, bookingPaymentMethod: e.target.value as Settings["bookingPaymentMethod"] & string })}><option value="mollie">Carte et Apple Pay · Mollie</option><option value="bank_transfer">Virement bancaire · vérification par le salon</option><option value="sumup">Carte et Apple Pay · SumUp</option><option value="paypal">PayPal</option></select></Field>
+    {draft.bookingPaymentMethod === "bank_transfer" && <><div className="form-grid">
       <Field label="Bénéficiaire du virement"><input autoComplete="off" maxLength={100} value={draft.bankTransferBeneficiary} onChange={e => setDraft({ ...draft, bankTransferBeneficiary: e.target.value })}/></Field>
       <Field label="IBAN du salon"><input autoComplete="off" spellCheck={false} maxLength={64} value={draft.bankTransferIban} onChange={e => setDraft({ ...draft, bankTransferIban: e.target.value })}/></Field>
       <Field label="BIC (facultatif)"><input autoComplete="off" maxLength={11} value={draft.bankTransferBic} onChange={e => setDraft({ ...draft, bankTransferBic: e.target.value })}/></Field>
       <Field label="Délai de paiement du virement (heures)"><input type="number" min={1} max={72} value={draft.bankTransferHoldHours} onChange={e => setDraft({ ...draft, bankTransferHoldHours: Number(e.target.value) })}/></Field>
     </div>
     <p className="small muted">Le bénéficiaire et un IBAN valide activent le virement. Ils sont affichés uniquement sur les pages privées des réservations concernées. Le délai est limité au début du rendez-vous ; passé ce délai, le créneau est libéré. Les réservations existantes conservent leurs coordonnées et leur échéance.</p>
-    <p>Aucun e-mail d’instructions n’est envoyé. Vérifiez les 10 € reçus dans votre banque, puis utilisez « Acompte reçu » dans Rendez-vous : la confirmation et le rappel sont préparés automatiquement.</p>
+    <p>Aucun e-mail d’instructions n’est envoyé. Vérifiez les 10 € reçus dans votre banque, puis utilisez « Acompte reçu » dans Rendez-vous : la confirmation et le rappel sont préparés automatiquement.</p></>}
+    {draft.bookingPaymentMethod !== "bank_transfer" && <p>Le paiement en ligne utilise la connexion privée du serveur. Consultez « Connexions & confirmations » pour préparer le service choisi et ses essais. Le bénéficiaire et l’IBAN du virement direct ne sont pas nécessaires à ce mode.</p>}
     <FormError error={error}/><SubmitButton pending={pending}>Enregistrer le mode de paiement</SubmitButton>
   </form>;
 }

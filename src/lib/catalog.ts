@@ -23,7 +23,7 @@ export type Settings = {
   pricingApproved: boolean; bookingDays: number; advanceMinutes: number;
   bookingBufferMinutes: number; bookingInstructions: string;
   confirmationEmail: boolean; reminderEmail: boolean; reminderHours: number;
-  bookingPaymentMethod: "bank_transfer" | "sumup" | "paypal" | null;
+  bookingPaymentMethod: "bank_transfer" | "sumup" | "paypal" | "mollie" | null;
   bankTransferIban: string; bankTransferBeneficiary: string; bankTransferBic: string; bankTransferHoldHours: number;
   schedule: WeeklySchedule; instagram: string; tiktok: string; facebook: string;
   legalName: string; siret: string; legalEmail: string;

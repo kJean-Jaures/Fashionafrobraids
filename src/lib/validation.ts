@@ -51,7 +51,7 @@ export const settingsSchema = z.object({
   bookingDays: z.number().int().min(1).max(365), advanceMinutes: z.number().int().min(0).max(10080), schedule: scheduleSchema,
   bookingBufferMinutes: z.number().int().min(0).max(120).default(0), bookingInstructions: z.string().trim().max(2000).default(""),
   confirmationEmail: z.boolean().default(true), reminderEmail: z.boolean().default(true), reminderHours: z.number().int().min(1).max(168).default(24),
-  bookingPaymentMethod: z.enum(["bank_transfer", "sumup", "paypal"]).nullable().default(null),
+  bookingPaymentMethod: z.enum(["bank_transfer", "sumup", "paypal", "mollie"]).nullable().default(null),
   bankTransferIban: z.string().max(64).transform(normalizeIban).refine(value => !value || validIban(value), "Vérifiez l’IBAN : sa clé de contrôle est invalide.").default(""),
   bankTransferBeneficiary: z.string().trim().max(100).default(""),
   bankTransferBic: z.string().trim().toUpperCase().refine(value => !value || /^[A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?$/.test(value), "Vérifiez le BIC.").default(""),

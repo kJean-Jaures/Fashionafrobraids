@@ -1,9 +1,11 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 import { addDays, parisDate } from "../../src/lib/time";
 import AxeBuilder from "@axe-core/playwright";
 import sharp from "sharp";
 import jsQR from "jsqr";
 import { readFile } from "node:fs/promises";
+
+let sharedAdminState: Awaited<ReturnType<APIRequestContext["storageState"]>> | undefined;
 
 test("accueil, navigation mobile, galerie et absence de débordement", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/");
@@ -364,6 +366,7 @@ test("la préparation virement montre les coordonnées manquantes et la vérific
 test('le virement sur mobile reste en attente puis le salon confirme après réception', async ({ page, request }) => {
   const login=await request.post('/api/admin/session',{data:{password:'test-only-password-32-characters'}});
   expect(login.status()).toBe(200);
+  sharedAdminState = await request.storageState();
   const headers={Cookie:login.headers()['set-cookie'].split(';')[0]};
   const original=(await (await request.get('/api/admin',{headers})).json()).settings;
   await page.context().addCookies((await request.storageState()).cookies);
@@ -432,4 +435,30 @@ test('le virement sur mobile reste en attente puis le salon confirme après réc
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
   expect((await request.put('/api/admin/settings',{headers,data:original})).status()).toBe(200);
+});
+
+test('le salon choisit Mollie sur mobile et voit les prérequis sans activer un encaissement', async ({ page, request }) => {
+  // Réutiliser la session valide du parcours précédent sans dépasser la protection des connexions.
+  if (!sharedAdminState) {
+    const login = await request.post('/api/admin/session', { data: { password: 'test-only-password-32-characters' } });
+    expect(login.status()).toBe(200); sharedAdminState = await request.storageState();
+  }
+  const headers = { Cookie: sharedAdminState.cookies.map(cookie => cookie.name + '=' + cookie.value).join('; ') };
+  const original = (await (await request.get('/api/admin', { headers })).json()).settings;
+  await page.context().addCookies(sharedAdminState.cookies);
+  try {
+    await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/admin');
+    await page.getByRole('navigation', { name: 'Administration' }).getByRole('button', { name: 'Paramètres', exact: true }).click();
+    await page.getByLabel('Mode de paiement de l’acompte').selectOption('mollie');
+    await expect(page.getByLabel('IBAN du salon')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Enregistrer le mode de paiement', exact: true }).click();
+    await expect.poll(async () => (await (await request.get('/api/catalog')).json()).bookingPaymentProvider).toBe('mollie');
+    const catalog = await (await request.get('/api/catalog')).json(); expect(catalog.bookingPaymentsEnabled).toBe(false);
+    await page.getByText('Connecter Mollie et Apple Pay', { exact: true }).click();
+    await expect(page.getByText(/PUBLIC_SITE_URL doit joindre cette application/)).toBeVisible();
+    await expect(page.getByText(/Mode test : aucun encaissement réel/)).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const check = await request.post('/api/bookings', { data: { serviceId: 'knotless', variantId: '1-1', date: addDays(parisDate(), 23), time: '08:30', name: 'Cliente Test', email: 'test@example.com', phone: '0612345678', consent: true } });
+    expect(check.status()).toBe(503);
+  } finally { await request.put('/api/admin/settings', { headers, data: original }); }
 });

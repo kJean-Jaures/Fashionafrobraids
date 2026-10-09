@@ -4,11 +4,17 @@ Dans `/admin`, ouvrir **Préparer les réservations**. Cet espace réunit les co
 
 Pour comprendre les rubriques et préparer l’équipe, consulter [le guide d’utilisation de l’administration](guide-administration.md).
 
+## Mollie : carte bancaire et Apple Pay
+
+Le **9 octobre 2026**, le propriétaire a choisi Mollie pour les acomptes du site et indiqué **compte créé, activation en cours**. La connexion est développée, mais aucun paiement réel n’est encore vérifié. Dans **Paramètres → Paiement de l’acompte**, sélectionner **Carte et Apple Pay · Mollie** et enregistrer ; ce choix en base a priorité sur les variables du serveur. Les anciens rendez-vous conservent leur mode de paiement.
+
+Suivre [le guide Mollie et Apple Pay](mollie-apple-pay.md) pour la clé de test, l’adresse HTTPS publique du nouveau site, les essais puis l’activation réelle. Les confirmations suivent exclusivement un paiement vérifié et les rappels utilisent la tâche planifiée existante. Apple Pay doit être activé chez Mollie et reste conditionné aux appareils compatibles.
+
 ## Virement directement sur le compte du salon
 
-Le choix final du **9 octobre 2026** est le virement direct sur le compte à La Banque Postale, avec vérification humaine de la réception. Le site ne consulte pas la banque. Le compte SumUp créé auparavant et ses clés ne sont pas nécessaires à ce parcours.
+Le virement direct sur le compte à La Banque Postale reste disponible comme alternative, avec vérification humaine de la réception. Le site ne consulte pas la banque. Le compte SumUp créé auparavant et ses clés ne sont pas nécessaires à ce parcours.
 
-1. Ouvrir **Administration → Paramètres → Virement direct sur votre compte** (également disponible dans **Préparer les réservations**).
+1. Ouvrir **Administration → Paramètres → Paiement de l’acompte** (également disponible dans **Préparer les réservations**).
 2. Sélectionner **Virement bancaire · vérification par le salon**. Renseigner le bénéficiaire tel qu’il figure sur le compte, l’IBAN, le BIC facultatif et le délai de paiement. Le délai initial est **24 heures**, réglable de 1 à 72 h, limité au début du rendez-vous. Enregistrer. Le choix admin prend priorité sur une ancienne variable serveur SumUp.
 3. Sans bénéficiaire et IBAN valide, le bouton de réservation avec acompte reste désactivé. L’IBAN est normalisé et contrôlé, mais le propriétaire doit vérifier lui-même le compte destinataire et les frais éventuels de sa banque. Ne pas envoyer les coordonnées dans le chat. Elles restent dans la base privée et les réservations concernées.
 4. La cliente enregistre sa demande, puis consulte le **QR code de virement**, les coordonnées, le montant **10 €**, la référence et l’échéance sur sa page privée. Une application bancaire compatible peut scanner le QR ou importer son image après **Enregistrer le QR code** ; sinon, les coordonnées restent utilisables. Elle vérifie et valide le virement dans sa banque. Le scan ou le téléchargement ne confirme jamais le paiement. **Aucun e-mail d’instructions ou de paiement en attente n’est envoyé.** Elle doit conserver ce lien. Le solde affiché est le prix total moins les 10 €.

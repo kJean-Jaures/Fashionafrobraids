@@ -14,7 +14,8 @@ export type BookingData = {
   name: string; email: string; phone: string; note: string; serviceId: string;
   service: string; variantId: string; size: string; length: string; options: string[];
   price: number; duration: number; deposit: number; depositPaid: boolean; employee: string;
-  paymentProvider?: "paypal" | "sumup" | "bank_transfer"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  paymentProvider?: "paypal" | "sumup" | "bank_transfer" | "mollie"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  molliePaymentId?: string; mollieProfileId?: string; mollieMode?: string; molliePaymentStatus?: string; molliePaymentMethod?: string;
   bankTransfer?: { iban: string; beneficiary: string; bic: string };
   bankTransferReceivedAt?: number; bankTransferReceiptReference?: string;
   sumupCheckoutId?: string; sumupTransactionId?: string; sumupMerchantCode?: string; sumupMode?: string; paymentReviewRequired?: boolean;
@@ -143,7 +144,7 @@ export async function moveBooking(id: string, date: string, time: string, employ
   await transaction(async connection => {
     await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
     const row = (await connection.query<Booking>("SELECT * FROM bookings WHERE id=$1", [id])).rows[0];
-    if (!row || (row.status !== "confirmed" && !(row.data.paymentProvider === "bank_transfer" && row.data.depositPaid && row.data.paymentReviewRequired))) throw new DomainError("Ce rendez-vous ne peut pas être déplacé.", 409);
+    if (!row || (row.status !== "confirmed" && !(row.data.depositPaid && row.data.paymentReviewRequired))) throw new DomainError("Ce rendez-vous ne peut pas être déplacé.", 409);
     const employee = await one<Employee>("employees", employeeId, connection);
     if (!employee?.active || (employee.serviceIds.length && !employee.serviceIds.includes(row.data.serviceId))) throw new DomainError("Cette coiffeuse ne réalise pas cette prestation.");
     const settings = await getSettings(connection);

@@ -3,6 +3,18 @@
 import type { BookingReadiness } from "@/lib/booking-readiness";
 
 export function PaymentSetupGuide({ payment }: { payment: BookingReadiness["payment"] }) {
+  if (payment.provider === "mollie") return <div className="payment-setup-guide">
+    <p>Carte bancaire et Apple Pay sur les appareils compatibles, sur la page sécurisée Mollie. Les paiements sont ensuite reversés sur le compte bancaire validé chez Mollie, après les frais du prestataire.</p>
+    <p>{payment.configured ? "Configuration présente. Vérifiez un paiement de test avant d’ouvrir les encaissements." : "À connecter : clé API Mollie privée et adresse HTTPS publique de ce nouveau site."}</p>
+    <p>Après paiement vérifié, le rendez-vous est confirmé automatiquement et l’e-mail de confirmation est préparé. Le rappel suit les réglages du salon et nécessite la tâche planifiée.</p>
+    {payment.mode === "test" && <p className="payment-notice">Mode test : aucun encaissement réel. La simulation ne vérifie pas Apple Pay sur un véritable appareil.</p>}
+    <details className="preparation-guide"><summary>Connecter Mollie et Apple Pay</summary><ol>
+      <li>Terminer l’activation du compte du salon sur <a href="https://www.mollie.com/fr" target="_blank" rel="noopener noreferrer">Mollie</a>, avec le compte bancaire de versement. Activer les cartes et Apple Pay dans les moyens de paiement du profil du nouveau site.</li>
+      <li>Ajouter la clé API de test dans MOLLIE_API_KEY et définir MOLLIE_MODE=test, PAYMENT_PROVIDER=mollie et PUBLIC_SITE_URL dans les paramètres privés du serveur. Ne jamais envoyer la clé dans le chat.</li>
+      <li>PUBLIC_SITE_URL doit joindre cette application en HTTPS pour le retour et le webhook. Le domaine encore relié à Squarespace et une adresse localhost ne conviennent pas aux notifications Mollie.</li>
+      <li>Tester les états payé, refusé et annulé, l’e-mail et les disponibilités. Quand le compte est activé, remplacer la clé par celle du mode réel et définir MOLLIE_MODE=live. Redémarrer le serveur, puis vérifier Apple Pay sur un appareil compatible avant l’ouverture.</li>
+    </ol><p className="small muted">Apple Pay dépend du profil Mollie, de l’appareil, du navigateur et de la carte enregistrée. La carte bancaire reste proposée. Aucun paiement ni remboursement automatique n’est lancé depuis l’administration.</p></details>
+  </div>;
   if (payment.provider === "bank_transfer") return <div className="payment-setup-guide">
     <p>Les 10 € arrivent directement sur le compte bancaire du salon. Le site ne prélève aucune commission de paiement ; les éventuels frais bancaires dépendent de votre contrat.</p>
     <p>{payment.configured ? "Coordonnées enregistrées. Vérifiez une réservation de test et sa confirmation." : "À renseigner : bénéficiaire et IBAN du salon dans les paramètres du virement."}</p>
