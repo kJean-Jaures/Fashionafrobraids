@@ -4,5 +4,7 @@ import { checkoutSession } from "./payments";
 import { sumupCheckoutSession } from "./sumup-payments";
 
 export function bookingCheckoutSession(booking: Booking & { token: string }) {
-  return paymentProvider() === "sumup" ? sumupCheckoutSession(booking) : checkoutSession(booking);
+  const provider = booking.data.paymentProvider || paymentProvider();
+  if (provider === "bank_transfer") return null;
+  return provider === "sumup" ? sumupCheckoutSession(booking) : checkoutSession(booking);
 }

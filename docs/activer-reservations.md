@@ -4,46 +4,23 @@ Dans `/admin`, ouvrir **Préparer les réservations**. Cet espace réunit les co
 
 Pour comprendre les rubriques et préparer l’équipe, consulter [le guide d’utilisation de l’administration](guide-administration.md).
 
-## Préparer les connexions avant la mise en ligne
+## Virement directement sur le compte du salon
 
-Le propriétaire a choisi carte bancaire et Apple Pay, avec réception des encaissements sur son compte à La Banque Postale. Il a confirmé la création de son compte SumUp le **8 octobre 2026**. La validation du profil, l’activation des paiements en ligne, le compte de versement et les identifiants de test restent à vérifier. L’intégration utilise une page de paiement hébergée et ne collecte pas les cartes dans le site.
+Le choix final du **9 octobre 2026** est le virement direct sur le compte à La Banque Postale, avec vérification humaine de la réception. Le site ne consulte pas la banque. Le compte SumUp créé auparavant et ses clés ne sont pas nécessaires à ce parcours.
 
-Le choix a été reconfirmé le **8 octobre 2026** après comparaison avec le virement manuel. Aucun e-mail d’instructions de paiement ou de réservation en attente n’est envoyé. Le serveur vérifie l’encaissement de l’acompte auprès de SumUp, confirme le rendez-vous, envoie la confirmation puis programme le rappel. Cette validation n’attend pas le versement ultérieur de SumUp sur le compte à La Banque Postale ; ses délais dépendent du compte marchand. Aucun bouton de validation manuelle de virement n’est ajouté à ce parcours.
+1. Ouvrir **Administration → Paramètres → Virement direct sur votre compte** (également disponible dans **Préparer les réservations**).
+2. Sélectionner **Virement bancaire · vérification par le salon**. Renseigner le bénéficiaire tel qu’il figure sur le compte, l’IBAN, le BIC facultatif et le délai de paiement. Le délai initial est **24 heures**, réglable de 1 à 72 h, limité au début du rendez-vous. Enregistrer. Le choix admin prend priorité sur une ancienne variable serveur SumUp.
+3. Sans bénéficiaire et IBAN valide, le bouton de réservation avec acompte reste désactivé. L’IBAN est normalisé et contrôlé, mais le propriétaire doit vérifier lui-même le compte destinataire et les frais éventuels de sa banque. Ne pas envoyer les coordonnées dans le chat. Elles restent dans la base privée et les réservations concernées.
+4. La cliente enregistre sa demande, puis consulte les coordonnées, le montant **10 €**, la référence et l’échéance sur sa page privée. **Aucun e-mail d’instructions ou de paiement en attente n’est envoyé.** Elle doit conserver ce lien. Le solde affiché est le prix total moins les 10 €.
+5. Après avoir constaté la réception complète sur son compte, le salon ouvre **Rendez-vous → Virements à vérifier**, clique **Acompte reçu**, coche son attestation, ajoute éventuellement la référence bancaire, puis clique **Valider et confirmer**.
+6. Le serveur revérifie le créneau, confirme le rendez-vous, transmet la confirmation au service e-mail et prépare le rappel. La date de validation et la référence bancaire sont conservées. La réception de l’e-mail doit être vérifiée dans la boîte cliente ; en cas d’échec, contrôler Resend et utiliser **Envoyer les e-mails dus** après correction.
+7. À expiration, le planning libère le créneau sans attendre un cron. Si un virement tardif est reçu et que le créneau est encore libre, le salon peut confirmer. Si le créneau est occupé, l’acompte est enregistré pour examen, sans confirmation. **Choisir un autre créneau** permet de déplacer et confirmer ce rendez-vous avec le même acompte, sans demander un second paiement. Un rendez-vous explicitement annulé nécessite une vérification avec la cliente.
 
-Le test doit utiliser un profil marchand **Sandbox**, distinct du profil d’encaissement réel. Une adresse **HTTPS joignable depuis Internet** doit renvoyer vers cette nouvelle application pour recevoir les callbacks. Un lien HTTPS temporaire vers le serveur local peut servir aux essais. Ne pas utiliser le domaine encore relié au site Squarespace comme s’il servait déjà la nouvelle application.
+Le test utilise uniquement des coordonnées de test et une validation simulée dans une base distincte. Ne pas effectuer de virement réel depuis l’aperçu de démonstration. La réception réelle, la confirmation e-mail et le rappel restent à essayer avec le salon avant ouverture commerciale. Le test d’envoi Resend a déjà été reçu sur le PC du propriétaire le **8 octobre 2026** ; cela ne prouve pas que le déclencheur permanent de rappel tourne.
 
-Sur le PC, les paramètres sont ajoutés au fichier privé `.env.local` existant, puis le serveur est redémarré. Sur l’hébergeur ou dans le cloud, utiliser les variables sécurisées. Conserver `.env.local` et le dossier `data` lors des mises à jour. Le fichier et les réglages du PC ne sont pas copiés automatiquement dans le cloud.
+## Connexions SumUp et PayPal facultatives
 
-Le propriétaire a confirmé l’accès à l’administration et la réception du test e-mail local le **8 octobre 2026**. Les confirmations et rappels sont activés avec un délai de 24 h, mais le parcours de paiement et l’exécution permanente des rappels restent à vérifier. Aucun paiement réel ni test distant SumUp n’a été effectué.
-
-## Carte bancaire et Apple Pay avec SumUp
-
-1. Dans le compte du salon déjà créé sur [SumUp](https://www.sumup.com/fr-fr/paiements-en-ligne/), vérifier les informations du salon et renseigner le compte de réception à La Banque Postale **chez SumUp**, puis faire valider le profil. Vérifier auprès de SumUp l’activation des paiements en ligne, les frais et les délais de versement. Le nouveau site utilise un paiement en ligne.
-2. Dans le tableau de bord SumUp, ouvrir les **réglages développeur → Sandboxes** et créer un profil marchand Sandbox. La [documentation de test](https://developer.sumup.com/online-payments/testing/) décrit aussi l’inscription à un compte développeur qui démarre avec un Sandbox.
-3. Pour ce profil, relever le **code marchand** et créer sa **clé API privée** dans **For Developers → Toolkit → API Keys**. La clé publique ne suffit pas. [Guide officiel des clés](https://developer.sumup.com/tools/authorization/api-keys/).
-4. Dans les paramètres privés du serveur, compléter :
-
-   ```dotenv
-   PAYMENT_PROVIDER=sumup
-   SUMUP_API_KEY=VOTRE_CLE_PRIVEE_DU_PROFIL_SANDBOX
-   SUMUP_MERCHANT_CODE=CODE_DU_MEME_PROFIL
-   SUMUP_MODE=test
-   PUBLIC_SITE_URL=https://ADRESSE_DE_CETTE_APPLICATION
-   ```
-
-   Remplacer ces exemples localement ou dans les variables sécurisées. La clé et les coordonnées bancaires ne doivent être ni envoyées dans le chat, ni ajoutées aux captures, ni mises dans Git. Redémarrer le serveur après modification.
-5. Réserver avec une adresse e-mail autorisée et payer sur la page SumUp avec une **carte de test de sa documentation**, sans fonds réels. Vérifier : montant **10,00 EUR**, retour à la réservation, état « Confirmé », solde au salon, confirmation e-mail, callback même sans retour du navigateur et absence de double envoi. Vérifier aussi un paiement refusé ou abandonné. Ne pas utiliser une vraie carte en supposant que la variable `test` seule simule la banque : le serveur vérifie le profil `sandbox` auprès de SumUp avant la création du checkout.
-6. Après validation complète, sélectionner le profil réel validé, créer sa propre clé, remplacer son code marchand, passer `SUMUP_MODE=live` et utiliser `DEMO_MODE=false` sur le site public. La démonstration bloque le mode Live. Vérifier Apple Pay sur un appareil, navigateur et carte compatibles ; les tests simulés du projet ne valident pas un paiement Apple Pay réel.
-
-Le [Hosted Checkout officiel](https://developer.sumup.com/online-payments/checkouts/hosted-checkout/) fournit la page de paiement carte et wallets. Le callback est défini automatiquement lors de chaque checkout, à `/api/payments/sumup/webhook`, via `return_url`. Un callback public n’est jamais pris comme preuve : le serveur relit le checkout puis la transaction avec la clé privée. Les frais de SumUp ne changent pas le solde client : les 10 € d’acompte sont déduits intégralement du prix de la prestation.
-
-Le créneau est retenu **35 minutes**, avec une expiration identique du checkout. Sans connexion, le bouton de paiement reste désactivé. Un paiement tardif ne peut pas doubler un créneau ; s’il ne peut plus confirmer le rendez-vous, l’administration le signale pour examen et la cliente est invitée à contacter le salon sans repayer.
-
-L’acompte n’est pas remboursable si la cliente annule. Cette règle est conservée avec la réservation. Une annulation par le salon ou un paiement encaissé sans rendez-vous confirmé doit être examiné directement auprès du prestataire ; aucun remboursement automatique n’est déclenché.
-
-### Option PayPal existante
-
-L’intégration PayPal et l’historique sont conservés. Pour la sélectionner, utiliser `PAYMENT_PROVIDER=paypal`, les identifiants marchands `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MODE=sandbox`, ainsi que `PUBLIC_SITE_URL`. Son webhook reste `/api/payments/paypal/webhook`, événement `PAYMENT.CAPTURE.COMPLETED`. Le compte auparavant connecté à Squarespace n’a pas été vérifié ; ne pas supposer que sa connexion est transférée au nouveau site. Cette option n’est pas nécessaire au choix carte/Apple Pay SumUp.
+Les anciennes réservations et leurs callbacks restent compatibles. Pour choisir un paiement en ligne ultérieurement, sélectionner ce mode dans l’administration et fournir les identifiants privés du serveur. SumUp utilise `SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_MODE=test`, puis `live` après validation, avec `PUBLIC_SITE_URL` HTTPS pointant vers ce nouveau site. Le serveur exige un profil Sandbox pour les essais et bloque le mode Live en démonstration. PayPal utilise ses identifiants marchands et son webhook existants. Aucune de ces connexions n’est requise pour le virement direct. Ne pas utiliser le domaine encore connecté à Squarespace comme s’il servait déjà la nouvelle application.
 
 ## Planning et catalogue
 

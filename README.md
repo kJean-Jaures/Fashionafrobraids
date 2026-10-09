@@ -14,7 +14,7 @@ Sur l’accueil, les visuels `fashion-original-1.png`, `fashion-original-2.jpg`,
 
 La galerie se parcourt avec des boutons précédent/suivant et les flèches du clavier ; le compteur correspond à la catégorie affichée. La recherche de coiffures reconnaît plusieurs mots, les accents, les tailles et les longueurs. Sur téléphone, elle apparaît avant les catégories, avec un bouton d’effacement et une remise à zéro des filtres. Voir les aperçus [recherche mobile](docs/apercu-catalogue-mobile.png) et [navigation de galerie](docs/apercu-galerie-navigation.png).
 
-L’espace administrateur comprend désormais **Préparer les réservations** : état de la connexion carte/Apple Pay SumUp, envoi e-mail, dernier passage réellement observé de la tâche de rappel, tarifs et durées à vérifier par variante, équipe et consignes. Les connexions configurées restent à tester avec les comptes du salon. Voir [le guide d’activation](docs/activer-reservations.md).
+L’espace administrateur comprend désormais **Préparer les réservations** : état du virement direct et des connexions facultatives, envoi e-mail, dernier passage réellement observé de la tâche de rappel, tarifs et durées à vérifier par variante, équipe et consignes. Les connexions configurées restent à tester avec les comptes du salon. Voir [le guide d’activation](docs/activer-reservations.md).
 
 Pour utiliser le tableau de bord au quotidien, consulter [le guide d’administration du salon](docs/guide-administration.md), avec les rubriques, l’accès local et les étapes de préparation de l’équipe.
 
@@ -84,35 +84,21 @@ Configurer une tâche planifiée, par exemple toutes les cinq minutes, qui appel
 
 Les envois sont réessayés jusqu’à trois tentatives. La clé d’idempotence évite les doublons chez le fournisseur. Les tâches interrompues peuvent être reprises après 15 minutes. Les tests de transport utilisent un fournisseur simulé ; la réception du test local est confirmée par le propriétaire, sans rendre les secrets de son PC disponibles dans le cloud.
 
-## Acompte de 10 € par carte bancaire et Apple Pay
+## Acompte de 10 € par virement direct
 
-Le propriétaire a choisi **carte bancaire et Apple Pay**, avec versement sur son compte à **La Banque Postale**, le 8 octobre 2026. Le parcours utilise **SumUp Hosted Checkout**, choisi pour sa page hébergée et son support officiel des cartes et wallets. Le propriétaire a confirmé la création de son compte SumUp ; la validation du profil, l’activation des paiements en ligne et la connexion du compte au site restent à vérifier. Apple Pay dépend du navigateur, de l’appareil, de la carte et de la configuration du marchand ; un bouton Apple Pay factice n’est pas affiché sur le site.
+Le propriétaire a choisi le **9 octobre 2026** le virement directement sur son compte à La Banque Postale. Le mode par défaut est `bank_transfer`. Dans **Administration → Paramètres → Virement direct sur votre compte**, sélectionner le virement et renseigner le bénéficiaire, l’IBAN, le BIC facultatif et le délai (24 h par défaut, réglable de 1 à 72 h). Le choix enregistré dans l’administration remplace une ancienne variable `PAYMENT_PROVIDER=sumup`. L’IBAN est normalisé et sa clé de contrôle validée. Aucun compte SumUp ni API bancaire n’est nécessaire.
 
-Le choix SumUp est reconfirmé après comparaison avec le virement manuel. Aucun e-mail d’instructions de paiement n’est envoyé : la confirmation et le rappel sont déclenchés uniquement après vérification du paiement. La confirmation dépend de l’encaissement validé chez SumUp, avant son versement ultérieur sur le compte bancaire du salon.
+La cliente enregistre sa réservation puis retrouve les coordonnées et sa référence sur son lien privé. Ces coordonnées ne sont pas diffusées par `/api/catalog`. La réservation conserve les coordonnées utilisées lors de sa création même si le salon change ensuite son compte. Le créneau est retenu jusqu’à l’échéance affichée, sans dépasser le début du rendez-vous. À expiration, il est libéré automatiquement par les règles de disponibilité, sans dépendre d’une tâche planifiée.
 
-Chaque prestation est configurée avec un acompte fixe de **10 €**, déduit du prix total. Le solde est réglé au salon. L’administration peut ajuster cette règle par prestation. La boutique conserve le paiement au retrait.
+**Aucun e-mail d’instructions ou de paiement en attente n’est envoyé.** Après vérification des 10 € reçus dans sa banque, le salon clique sur **Acompte reçu**, atteste la réception et peut noter la référence bancaire. Le serveur enregistre la date, le paiement et la règle d’acompte non remboursable, puis confirme uniquement un créneau encore disponible. La confirmation e-mail est envoyée et le rappel est programmé. Les 10 € sont déduits du total client. Le site n’accède pas au compte bancaire et ne détecte pas seul un virement.
 
-Configurer les variables privées du serveur :
+Deux validations concurrentes ne doublent ni l’acompte ni les messages. Un paiement tardif en conflit est enregistré pour examen, sans faux rendez-vous ni e-mail de confirmation. Le bouton **Choisir un autre créneau** permet alors de confirmer le même acompte après déplacement, sans deuxième paiement. Une réservation explicitement annulée ne peut pas être validée par ce bouton.
 
-- `PAYMENT_PROVIDER=sumup` (prestataire par défaut) ;
-- `SUMUP_API_KEY`, clé **privée** créée pour le profil marchand choisi ;
-- `SUMUP_MERCHANT_CODE`, code du même profil ;
-- `SUMUP_MODE=test` pour un profil Sandbox, puis `live` pour un profil réel ;
-- `PUBLIC_SITE_URL`, adresse HTTPS joignable de **cette nouvelle application**.
+Les réservations sans acompte restent confirmables directement. L’état du service e-mail est indiqué séparément : un rendez-vous confirmé n’est pas une preuve de réception du message. Le service Resend et la tâche permanente de rappel restent nécessaires. Voir [le guide d’activation](docs/activer-reservations.md).
 
-L’API est `api.sumup.com`. La clé utilise un en-tête Bearer et ne doit être transmise ni au navigateur, ni au chat, ni à Git. La page de paiement est fournie par SumUp sur `checkout.sumup.com` ; le site ne collecte aucune donnée de carte. Les coordonnées bancaires de réception sont renseignées uniquement auprès de SumUp. Ses frais et délais de versement dépendent de l’offre et du compte, à vérifier auprès du prestataire.
+### Connexions en ligne conservées
 
-Le serveur lit le profil marchand avant de créer le checkout : **le mode test exige `sandbox=true`**, pour empêcher un encaissement réel avec une clé réelle ajoutée par erreur. Le mode Live est désactivé en démonstration. Un checkout de 10 EUR expire avec la retenue de **35 minutes**. Le retour `/api/payments/sumup/return` conserve le lien privé de réservation ; le callback `/api/payments/sumup/webhook` permet de recevoir le résultat sans retour du navigateur. SumUp est abonné à ce callback par le champ `return_url` de chaque checkout.
-
-Un retour navigateur ou un callback public ne constitue pas une preuve de paiement. Le serveur relit le checkout et sa transaction via les API authentifiées : référence de réservation, compte marchand, montant EUR, statut `PAID`, transaction `SUCCESSFUL` et identifiant sont vérifiés. Un paiement vérifié confirme le rendez-vous et met ses e-mails en attente. Les callbacks répétés et les vérifications concurrentes ne doublent ni réservation ni e-mails. Si le planning n’est plus disponible, le paiement reste enregistré et le rendez-vous est signalé pour vérification du salon.
-
-L’acompte de **10 € n’est pas remboursable en cas d’annulation par la cliente**. Une annulation par le salon ou un paiement encaissé sans rendez-vous confirmé doit être examiné auprès du prestataire ; aucun remboursement automatique n’est déclenché. Sans configuration complète, le bouton de paiement reste désactivé et le site invite à appeler le salon.
-
-Le guide [Activer les réservations](docs/activer-reservations.md) détaille la création du profil Sandbox, la clé privée, les essais sans argent réel et le passage au profil réel. Les tests de code simulent les réponses du prestataire : **aucun paiement SumUp réel, Sandbox distant ou Apple Pay réel n’est validé sans compte connecté**.
-
-### Connexion PayPal conservée en option
-
-Les anciennes réservations PayPal et leurs callbacks restent compatibles. Pour utiliser cette connexion, définir `PAYMENT_PROVIDER=paypal` avec `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MODE=sandbox` ou `live` et `PUBLIC_SITE_URL`. Cette intégration automatique utilise un compte marchand PayPal ; la configuration exacte du compte auparavant connecté à Squarespace n’a pas été vérifiée. Le secret client OAuth doit être disponible dans le processus pour l’authentification Basic. Cette option n’est pas nécessaire au parcours SumUp choisi.
+Les anciennes réservations SumUp et PayPal ainsi que leurs callbacks sont conservés. Ces modes restent sélectionnables dans l’administration avec leurs identifiants privés, mais ne sont pas nécessaires au virement direct choisi. SumUp requiert `SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_MODE=test` puis `live`, et `PUBLIC_SITE_URL` HTTPS. Les essais vérifient un vrai profil Sandbox auprès du prestataire ; le mode démonstration bloque le mode Live. PayPal requiert les identifiants marchands déjà décrits dans `.env.example`. Aucun paiement réel ou Sandbox distant n’a été testé avec ces comptes. Garder les secrets hors de Git et du chat.
 
 ## Vérifications
 
@@ -127,9 +113,9 @@ Les tests métier et navigateur utilisent des bases temporaires distinctes, sans
 
 Les contrôles couvrent le prix des variantes et options, les durées, les collisions, les coiffeuses parallèles, les horaires, pauses, annulations, déplacements, stocks, commandes, liens privés, changement d’heure, notifications, création et vérification SumUp simulées, contrôle du profil Sandbox, callbacks et transactions, ainsi que création et capture PayPal simulées, vérification des webhooks, parcours mobile, administration, import de photos, contact, manifest et contrôles automatisés WCAG AA de l’accueil. Un contrôle automatique ne remplace pas une vérification manuelle exhaustive d’accessibilité.
 
-Dans cet environnement : **61 tests métier réussis**, vérification TypeScript et compilation de production réussies. Les contrôles vérifient les 94 correspondances de durées conservées, les photos Pinterest et leurs sources, la suppression des prestations demandées sans effacer leur historique, la migration des anciennes bases, les collisions d’une prestation de 65 minutes, la fermeture à 20 h, les estimations de durée avec blocage complet du planning et la galerie complète. Ils couvrent aussi la pause entre clientes, les changements de planning incompatibles, le recalcul et l’arrêt des rappels, les messages périmés, les envois concurrents, les consignes sur mobile, la validation de tarif par variante et la protection du déclencheur automatique. Le lanceur local a aussi été vérifié face à un ancien serveur encore ouvert : il démarre et ouvre la nouvelle version sur un autre port.
+Dans cet environnement : **70 tests métier réussis**, vérification TypeScript et compilation de production réussies. Les contrôles couvrent le virement direct, la validation de l’IBAN, la confidentialité des coordonnées, la retenue limitée au début du rendez-vous, les validations concurrentes, les paiements tardifs et le déplacement après conflit, ainsi que le déclenchement unique de la confirmation après attestation du salon. Ils couvrent aussi les tarifs, durées, photos, migrations, horaires, pauses, disponibilités, stocks, notifications et anciennes connexions de paiement. Le lanceur local a précédemment été vérifié face à un ancien serveur encore ouvert : il démarre et ouvre la nouvelle version sur un autre port.
 
-La correction mémoire précédente a été vérifiée en mode démonstration sous **512 Mio sans swap** avant cet import complet d’images ; ce résultat ne constitue pas une mesure mémoire du nouveau catalogue. PostgreSQL externe, confirmation après paiement, rappel automatique et paiement SumUp réel restent à vérifier avec les comptes du salon. La réception du test e-mail local a été confirmée par le propriétaire.
+La correction mémoire précédente a été vérifiée en mode démonstration sous **512 Mio sans swap** avant cet import complet d’images ; ce résultat ne constitue pas une mesure mémoire du nouveau catalogue. PostgreSQL externe, réception d’un virement réel, confirmation e-mail après validation et rappel automatique restent à vérifier avec les comptes du salon. La réception du test e-mail local a été confirmée par le propriétaire.
 
 ## Mise en ligne
 
@@ -141,8 +127,8 @@ npm start
 
 Définir le mot de passe administrateur, la base PostgreSQL, le stockage persistant des photos et l’adresse HTTPS chez l’hébergeur. Ajouter les secrets des services choisis. Les tarifs sont validés ; vérifier les stocks, la capacité réelle et les photos, puis affiner au besoin les durées estimées dans l’administration. Compléter la raison sociale, le SIRET, les coordonnées légales, l’hébergement, les conditions commerciales, de réservation et la politique de confidentialité. Les documents fournis sont des documents de travail clairement identifiés.
 
-Passer `ALLOW_INDEXING=true` après validation. Tester les envois et paiements réels en mode test avant l’ouverture commerciale. L’installation PWA et l’authentification de gestion en production nécessitent HTTPS.
+Passer `ALLOW_INDEXING=true` après validation. Vérifier le parcours en démonstration, puis la réception bancaire, la confirmation e-mail et le rappel avec le salon avant l’ouverture commerciale. L’installation PWA et l’authentification de gestion en production nécessitent HTTPS.
 
 La configuration enregistrée dans les paramètres de l’environnement Codex contient les instructions d’installation et de démarrage. Sa publication crée l’environnement réutilisable ; elle **ne met pas le site en ligne sur fashionafrobraids.fr** et ne modifie pas Squarespace.
 
-Les **18 parcours navigateur** ont été vérifiés au cours de cette intégration : 17 ont réussi dans la suite complète ; une assertion conservant l’ancien libellé PayPal a été adaptée à SumUp, puis les deux parcours de préparation du salon ont réussi après la compilation finale. Les contrôles automatisés d’accessibilité passent aussi sur l’accueil, la recherche et la visionneuse. Les tests métier simulent les réponses de paiement et d’envoi : ils ne constituent pas un encaissement ni une réception e-mail réels.
+Les **19 parcours navigateur** ont réussi dans une suite complète le 9 octobre 2026. Le nouveau parcours mobile vérifie l’enregistrement privé de l’IBAN, la réservation sans e-mail avant paiement, les coordonnées sur le lien privé, l’attestation du salon, la confirmation et le lien calendrier. Les contrôles automatisés d’accessibilité passent sur l’accueil, la recherche, la visionneuse et la confirmation. Les tests utilisent des bases distinctes et des réponses de paiement ou d’envoi simulées : ils ne constituent pas un encaissement ni une réception e-mail réels.

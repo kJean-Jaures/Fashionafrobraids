@@ -3,6 +3,12 @@
 import type { BookingReadiness } from "@/lib/booking-readiness";
 
 export function PaymentSetupGuide({ payment }: { payment: BookingReadiness["payment"] }) {
+  if (payment.provider === "bank_transfer") return <div className="payment-setup-guide">
+    <p>Les 10 € arrivent directement sur le compte bancaire du salon. Le site ne prélève aucune commission de paiement ; les éventuels frais bancaires dépendent de votre contrat.</p>
+    <p>{payment.configured ? "Coordonnées enregistrées. Vérifiez une réservation de test et sa confirmation." : "À renseigner : bénéficiaire et IBAN du salon dans les paramètres du virement."}</p>
+    <p>Après réception des 10 €, cliquez sur « Acompte reçu » dans Rendez-vous. Le site confirme le créneau et prépare la confirmation e-mail et le rappel. Aucun e-mail d’instructions ou de paiement en attente n’est envoyé.</p>
+    {payment.demo && <p className="small muted">Démonstration : utilisez des données de test et n’effectuez aucun virement réel.</p>}
+  </div>;
   const sumup = payment.provider === "sumup";
   return <div className="payment-setup-guide">
     <p>{sumup ? "Carte bancaire et Apple Pay sur les appareils compatibles, via la page sécurisée SumUp. Les encaissements sont versés sur le compte bancaire enregistré chez SumUp, après les frais du prestataire." : "Paiement via la page sécurisée PayPal. La carte bancaire est proposée selon l’éligibilité du compte et de la cliente."}</p>

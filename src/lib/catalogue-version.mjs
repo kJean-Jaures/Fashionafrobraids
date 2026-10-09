@@ -1,1 +1,1 @@
-export const catalogueVersion = "fashion-card-applepay-20261008";
+export const catalogueVersion = "fashion-bank-transfer-20261009";

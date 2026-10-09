@@ -845,3 +845,8 @@ input[type=checkbox] { accent-color:#883056; height:15px; width:15px; }
   .lightbox-control { padding:8px; }
   .lightbox-control>span { display:none; }
 }
+
+.bank-transfer-details dl { text-align: left; margin: 1.5rem 0; }
+.bank-transfer-details dl > div { padding: .75rem 0; border-bottom: 1px solid var(--border, #e6d8d5); }
+.bank-transfer-details dt { font-size: .8rem; opacity: .75; margin-bottom: .3rem; }
+.bank-transfer-details dd { margin: 0; overflow-wrap: anywhere; }

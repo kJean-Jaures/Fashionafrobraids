@@ -1,10 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { canBookVariant, durationIsEstimated, type Service, type Product, type Employee } from "./catalog";
 import { db, transaction, all, one, getSettings, type Connection } from "./db";
-import { possibleSlots, timestamp, validDate } from "./time";
+import { possibleSlots, timestamp, validDate, scheduleContainsBooking } from "./time";
 import type { BookingInput, OrderInput } from "./validation";
 import { queueBookingEmails } from "./notifications";
-import { bookingPaymentsConfigured } from "./payment-config";
+import { bookingPaymentsConfigured, paymentProvider } from "./payment-config";
 import { depositPolicy, depositCancellationNotice } from "./booking-policy";
 
 export class DomainError extends Error { constructor(message: string, public status = 400) { super(message); } }
@@ -14,7 +14,9 @@ export type BookingData = {
   name: string; email: string; phone: string; note: string; serviceId: string;
   service: string; variantId: string; size: string; length: string; options: string[];
   price: number; duration: number; deposit: number; depositPaid: boolean; employee: string;
-  paymentProvider?: "paypal" | "sumup"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  paymentProvider?: "paypal" | "sumup" | "bank_transfer"; paypalOrderId?: string; paypalCaptureId?: string; paymentUrl?: string;
+  bankTransfer?: { iban: string; beneficiary: string; bic: string };
+  bankTransferReceivedAt?: number; bankTransferReceiptReference?: string;
   sumupCheckoutId?: string; sumupTransactionId?: string; sumupMerchantCode?: string; sumupMode?: string; paymentReviewRequired?: boolean;
   depositPolicy?: typeof depositPolicy;
   durationEstimated?: boolean;
@@ -69,18 +71,21 @@ export async function createBooking(input: BookingInput) {
     const service = await one<Service>("services", input.serviceId, connection);
     if (!service) throw new DomainError("Cette prestation n’existe pas.");
     const selected = selection(service, input.variantId, input.optionIds);
-    if (selected.deposit && !bookingPaymentsConfigured()) throw new DomainError("L’acompte en ligne n’est pas encore activé. Appelez le salon pour réserver cette prestation.", 503);
     const settings = await getSettings(connection);
+    if (selected.deposit && !bookingPaymentsConfigured(settings)) throw new DomainError("L’acompte n’est pas encore configuré. Appelez le salon pour réserver cette prestation.", 503);
     const staff = (await all<Employee>("employees", connection)).filter(item => item.active && (!item.serviceIds.length || item.serviceIds.includes(service.id)) && (input.employeeId === "any" || input.employeeId === item.id));
     for (const employee of staff) {
       const slot = possibleSlots(input.date, selected.duration, Date.now(), settings, employee.schedule).find(slot => slot.time === input.time);
       if (!slot || await busy(connection, employee.id, slot.start, slot.end, "", settings.bookingBufferMinutes)) continue;
       const data: BookingData = { name: input.name, email: input.email, phone: input.phone, note: input.note, serviceId: service.id, service: service.name, variantId: selected.variant.id, size: selected.variant.size, length: selected.variant.length, options: selected.options.map(option => option.label), price: selected.price, duration: selected.duration, deposit: selected.deposit, depositPaid: false, employee: employee.name };
       if (selected.deposit) data.depositPolicy = depositPolicy;
+      const transfer = selected.deposit > 0 && paymentProvider(settings) === "bank_transfer";
+      if (selected.deposit) data.paymentProvider = paymentProvider(settings);
+      if (transfer) data.bankTransfer = { iban: settings.bankTransferIban, beneficiary: settings.bankTransferBeneficiary, bic: settings.bankTransferBic };
       data.durationEstimated = Boolean(durationIsEstimated(service, selected.variant, selected.options));
       const status = selected.deposit ? "pending_payment" : "confirmed";
       // Le créneau est retenu pendant le paiement, puis libéré sans paiement vérifié.
-      const expiry = selected.deposit ? Date.now() + 35 * 60000 : null;
+      const expiry = selected.deposit ? Math.min(slot.start, Date.now() + (transfer ? settings.bankTransferHoldHours * 3600000 : 35 * 60000)) : null;
       await connection.query("INSERT INTO bookings(id,token_hash,employee_id,start_time,end_time,status,expires_at,data,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)", [id, hashToken(token), employee.id, slot.start, slot.end, status, expiry, JSON.stringify(data), Date.now()]);
       const booking: Booking = { id, employee_id: employee.id, start_time: slot.start, end_time: slot.end, status, expires_at: expiry, data, created_at: Date.now() };
       if (!selected.deposit) await queueBookingEmails(connection, booking);
@@ -89,6 +94,28 @@ export async function createBooking(input: BookingInput) {
     throw new DomainError("Ce créneau n’est plus disponible. Choisissez un autre horaire.", 409);
   });
   return { ...result, token };
+}
+
+export async function receiveBankTransfer(id: string, receiptReference = "") {
+  return transaction(async connection => {
+    await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
+    const row = (await connection.query<Booking>("SELECT * FROM bookings WHERE id=$1 FOR UPDATE", [id])).rows[0];
+    if (!row || row.data.paymentProvider !== "bank_transfer" || row.data.deposit <= 0) throw new DomainError("Ce rendez-vous n’attend pas un virement.", 409);
+    const current = hydrateBooking(row);
+    if (current.data.depositPaid) return { status: current.status, reviewRequired: Boolean(current.data.paymentReviewRequired) };
+    if (current.status === "cancelled") throw new DomainError("Ce rendez-vous a été annulé. Vérifiez le paiement avec la cliente avant de créer un autre rendez-vous.", 409);
+    const settings = await getSettings(connection);
+    const employee = await one<Employee>("employees", current.employee_id, connection);
+    const planningValid = employee?.active && (!employee.serviceIds.length || employee.serviceIds.includes(current.data.serviceId)) &&
+      scheduleContainsBooking(settings.schedule, current.start_time, current.end_time) && (!employee.schedule || scheduleContainsBooking(employee.schedule, current.start_time, current.end_time));
+    const available = current.start_time > Date.now() && planningValid && !await busy(connection, current.employee_id, current.start_time, current.end_time, id, settings.bookingBufferMinutes);
+    const status = available ? "confirmed" : "cancelled";
+    const data: BookingData = { ...current.data, depositPaid: true, bankTransferReceivedAt: Date.now(), bankTransferReceiptReference: receiptReference.trim(), paymentReviewRequired: !available };
+    await connection.query("UPDATE bookings SET status=$2,data=$3::jsonb WHERE id=$1", [id, status, JSON.stringify(data)]);
+    await connection.query("INSERT INTO payment_events(id,created_at) VALUES($1,$2) ON CONFLICT DO NOTHING", ["bank_transfer:" + id, Date.now()]);
+    if (available) await queueBookingEmails(connection, { ...current, status, data });
+    return { status, reviewRequired: !available };
+  });
 }
 export async function readBooking(id: string, token: string) {
   if (token.length < 30 || token.length > 100) throw new DomainError("Lien de réservation invalide.", 404);
@@ -116,15 +143,16 @@ export async function moveBooking(id: string, date: string, time: string, employ
   await transaction(async connection => {
     await connection.query("SELECT id FROM settings WHERE id='salon' FOR UPDATE");
     const row = (await connection.query<Booking>("SELECT * FROM bookings WHERE id=$1", [id])).rows[0];
-    if (!row || row.status !== "confirmed") throw new DomainError("Ce rendez-vous ne peut pas être déplacé.", 409);
+    if (!row || (row.status !== "confirmed" && !(row.data.paymentProvider === "bank_transfer" && row.data.depositPaid && row.data.paymentReviewRequired))) throw new DomainError("Ce rendez-vous ne peut pas être déplacé.", 409);
     const employee = await one<Employee>("employees", employeeId, connection);
     if (!employee?.active || (employee.serviceIds.length && !employee.serviceIds.includes(row.data.serviceId))) throw new DomainError("Cette coiffeuse ne réalise pas cette prestation.");
     const settings = await getSettings(connection);
     const slot = possibleSlots(date, row.data.duration, Date.now(), settings, employee.schedule).find(slot => slot.time === time);
     if (!slot || await busy(connection, employee.id, slot.start, slot.end, id, settings.bookingBufferMinutes)) throw new DomainError("Ce créneau n’est pas disponible.", 409);
-    await connection.query("UPDATE bookings SET employee_id=$2,start_time=$3,end_time=$4,data=$5::jsonb WHERE id=$1", [id, employee.id, slot.start, slot.end, JSON.stringify({ ...row.data, employee: employee.name })]);
+    const data = { ...row.data, employee: employee.name, paymentReviewRequired: false };
+    await connection.query("UPDATE bookings SET status='confirmed',employee_id=$2,start_time=$3,end_time=$4,data=$5::jsonb WHERE id=$1", [id, employee.id, slot.start, slot.end, JSON.stringify(data)]);
     await connection.query("DELETE FROM notifications WHERE booking_id=$1 AND status<>'sent'", [id]);
-    await queueBookingEmails(connection, { ...hydrateBooking(row), employee_id: employee.id, start_time: slot.start, end_time: slot.end, data: { ...row.data, employee: employee.name } });
+    await queueBookingEmails(connection, { ...hydrateBooking(row), status: "confirmed", employee_id: employee.id, start_time: slot.start, end_time: slot.end, data });
   });
 }
 export async function createBlock(employeeId: string | null, start: number, end: number, reason: string) {

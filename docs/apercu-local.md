@@ -11,11 +11,11 @@ Cette méthode fonctionne sur votre ordinateur Windows, macOS ou Linux. Elle ne 
 
 Le lanceur affiche l’adresse locale du site. Cette adresse fonctionne **sur l’ordinateur où le fichier a été lancé**. Une adresse locale d’un serveur cloud ne permet pas d’ouvrir ce serveur depuis votre PC.
 
-Le lanceur active le mode démonstration : cet aperçu permet de parcourir le catalogue et les tarifs, utiliser le panier et ouvrir l’administration. La confirmation d’une réservation avec acompte attend une connexion SumUp Sandbox ; aucun paiement réel n’est activé dans cet aperçu. Les données restent sur votre ordinateur.
+Le lanceur active le mode démonstration : cet aperçu permet de parcourir le catalogue et les tarifs, utiliser le panier et ouvrir l’administration. Le virement peut être essayé avec des coordonnées de test dans l’administration et une validation simulée « Acompte reçu » ; n’effectuer aucun virement réel depuis cet aperçu. Les données restent sur votre ordinateur.
 
 ### Voir la dernière mise à jour
 
-Fermer l’ancienne fenêtre du serveur avec **Ctrl+C**, puis télécharger à nouveau le ZIP ci-dessus et l’extraire dans un **nouveau dossier**. Lancer `Demarrer-le-site.cmd` depuis ce nouveau dossier. Les changements ne s’installent pas dans une ancienne archive déjà extraite. Pour conserver vos propres données de gestion, utiliser plutôt une mise à jour Git du dossier existant ou sauvegarder vos données avant de changer de dossier.
+Fermer l’ancienne fenêtre du serveur avec **Ctrl+C**, puis télécharger à nouveau le ZIP ci-dessus et l’extraire dans un **nouveau dossier**. Avant de lancer ce nouveau dossier, copier depuis l’ancien le fichier privé **`.env.local`** et le dossier **`data`** : ils conservent le mot de passe, les réglages e-mail, les rendez-vous et les photos ajoutées. Garder aussi une sauvegarde de l’ancien dossier. Lancer ensuite `Demarrer-le-site.cmd`. Les changements ne s’installent pas dans une ancienne archive déjà extraite. Une mise à jour Git du dossier existant conserve également ces fichiers privés.
 
 ### macOS, Linux ou terminal Windows
 
@@ -47,7 +47,7 @@ Le mot de passe de gestion est créé dans le fichier privé `.env.local`, à la
 
 Si `.env.local` existe déjà avec les réglages e-mail, le lanceur complète maintenant uniquement le mot de passe absent ou vide. Les autres réglages et un mot de passe existant sont conservés. Lire le mot de passe localement et le saisir uniquement dans l’administration ; garder ce fichier hors des captures d’écran. Pour une ancienne version du lanceur, ajouter une ligne `ADMIN_PASSWORD=` suivie d’un mot de passe personnel unique d’au moins 16 caractères, puis redémarrer le site.
 
-Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend ou SumUp, aucun e-mail réel ni paiement d'acompte n'est effectué.
+Les stocks commencent à zéro : renseigner un stock de test dans l'administration pour essayer une commande. Sans configuration Resend, aucun e-mail réel n’est envoyé. Le site n’effectue aucun virement : la réception est attestée manuellement par le salon.
 
 ## GitHub et lien public
 

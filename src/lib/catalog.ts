@@ -23,6 +23,8 @@ export type Settings = {
   pricingApproved: boolean; bookingDays: number; advanceMinutes: number;
   bookingBufferMinutes: number; bookingInstructions: string;
   confirmationEmail: boolean; reminderEmail: boolean; reminderHours: number;
+  bookingPaymentMethod: "bank_transfer" | "sumup" | "paypal" | null;
+  bankTransferIban: string; bankTransferBeneficiary: string; bankTransferBic: string; bankTransferHoldHours: number;
   schedule: WeeklySchedule; instagram: string; tiktok: string; facebook: string;
   legalName: string; siret: string; legalEmail: string;
 };
@@ -30,6 +32,7 @@ export const salon = { name: "Fashion Afro Braids Paris", timezone: "Europe/Pari
 export const initialSettings: Settings = {
   ...salon, email: "fashionafrobraidsoff@gmail.com", pricingApproved: true, bookingDays: 60, advanceMinutes: 120,
   bookingBufferMinutes: 0, bookingInstructions: "", confirmationEmail: true, reminderEmail: true, reminderHours: 24,
+  bookingPaymentMethod: null, bankTransferIban: "", bankTransferBeneficiary: "", bankTransferBic: "", bankTransferHoldHours: 24,
   schedule: Object.fromEntries(Array.from({ length: 7 }, (_, day) => [String(day), { closed: false, start: "08:30", end: "20:00" }])),
   instagram: "", tiktok: "", facebook: "", legalName: "", siret: "", legalEmail: ""
 };

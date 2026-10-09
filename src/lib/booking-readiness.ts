@@ -14,7 +14,7 @@ export function bookingReadiness(services: Service[], employees: Employee[], set
     staffMissing: canBookVariant(service, variant) && !staff.some(employee => !employee.serviceIds.length || employee.serviceIds.includes(service.id)),
   }))).filter(item => item.pricePending || item.durationPending || item.durationEstimated || item.staffMissing);
   return {
-    payment: { ...paymentConfiguration(), demo: process.env.DEMO_MODE === "true" },
+    payment: { ...paymentConfiguration(settings), demo: process.env.DEMO_MODE === "true" },
     email: { configured: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM) },
     reminders: { secretConfigured: Boolean(process.env.CRON_SECRET), lastRun, recent: Boolean(lastRun?.configured && lastRun.at > Date.now() - 30 * 60000) },
     catalog: { items, pricesPending: items.filter(item => item.pricePending).length, durationsPending: items.filter(item => item.durationPending).length, durationsEstimated: items.filter(item => item.durationEstimated).length, staffMissing: items.filter(item => item.staffMissing).length },

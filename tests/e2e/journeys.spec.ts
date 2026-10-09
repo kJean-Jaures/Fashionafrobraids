@@ -254,8 +254,8 @@ test("le logo original, les prix de l’affiche et les 10 € sont visibles sur 
   await page.getByRole("button", { name: dateLabel, exact: true }).click();
   await page.getByRole("button", { name: "08 h 30", exact: true }).click();
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Payer l’acompte.*10/ })).toBeDisabled();
-  await expect(page.getByText(/Le paiement de l’acompte sera bientôt disponible/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enregistrer ma réservation", exact: true })).toBeDisabled();
+  await expect(page.getByText(/La réservation avec acompte sera bientôt disponible/)).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveAccessibleName(/n’est pas remboursable/);
   await page.goto("/politique-reservation");
   await expect(page.getByText(/l’acompte de 10 € reste acquis au salon et n’est pas remboursé/)).toBeVisible();
@@ -268,15 +268,17 @@ test("la préparation du salon enregistre les consignes et valide un tarif par v
   // Simuler une demande de revalidation dans la base temporaire uniquement.
   const originalSettings = (await (await request.get("/api/catalog")).json()).settings;
   const initialLogin = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
+  expect(initialLogin.status()).toBe(200);
   const initialHeaders = { Cookie: initialLogin.headers()["set-cookie"].split(";")[0] };
   expect((await request.put("/api/admin/settings", { headers:initialHeaders, data:{...originalSettings,pricingApproved:false} })).status()).toBe(200);
-  await request.delete("/api/admin/session");
+  // Réutiliser la session authentifiée pour éviter des connexions artificiellement répétées.
+  await page.context().addCookies((await request.storageState()).cookies);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/admin"); await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters"); await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await page.goto("/admin");
   await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Préparer les réservations", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Carte bancaire & Apple Pay · 10 €", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Acompte par virement · 10 €", exact: true })).toBeVisible();
   await expect(page.getByText("Envoi à activer", { exact: true })).toBeVisible();
-  await expect(page.getByText(/À connecter : compte SumUp du salon/)).toBeVisible();
+  await expect(page.getByText(/À renseigner : bénéficiaire et IBAN du salon/)).toBeVisible();
   await page.getByLabel("Rappel avant le rendez-vous (heures)").fill("48");
   await page.getByLabel("Pause entre deux clientes (minutes)").fill("15");
   await page.getByLabel("Consignes avant le rendez-vous").fill("Consigne de test : apportez vos mèches.");
@@ -296,9 +298,7 @@ test("la préparation du salon enregistre les consignes et valide un tarif par v
   const catalog = await (await request.get("/api/catalog")).json();
   expect(catalog.settings.bookingBufferMinutes).toBe(15); expect(catalog.settings.schedule["1"]).toEqual({closed:false,start:"08:30",end:"20:00"});
   // Restaurer les réglages de cette base temporaire pour les autres parcours.
-  const login = await request.post("/api/admin/session", { data: { password: "test-only-password-32-characters" } });
-  const headers = { Cookie: login.headers()["set-cookie"].split(";")[0] };
-  expect((await request.put("/api/admin/settings", { headers, data: originalSettings })).status()).toBe(200);
+  expect((await request.put("/api/admin/settings", { headers:initialHeaders, data: originalSettings })).status()).toBe(200);
 });
 
 test("le test d’envoi est protégé et l’administration distingue acceptation et réception", async ({ page, request }) => {
@@ -344,20 +344,70 @@ test("la tâche de rappel exige son secret et son dernier passage apparaît dans
   expect(data.readiness.reminders.recent).toBe(false);
 });
 
-test("la préparation carte et Apple Pay montre le guide SumUp sans annoncer une connexion absente", async ({ page, request }) => {
+test("la préparation virement montre les coordonnées manquantes et la vérification du salon", async ({ page, request }) => {
   const catalog = await (await request.get("/api/catalog")).json();
-  expect(catalog.bookingPaymentProvider).toBe("sumup"); expect(catalog.bookingPaymentsEnabled).toBe(false);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/admin");
+  expect(catalog.bookingPaymentProvider).toBe("bank_transfer"); expect(catalog.bookingPaymentsEnabled).toBe(false);
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/admin");
   await page.getByLabel("Mot de passe de gestion").fill("test-only-password-32-characters");
   await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await page.getByRole("button", { name: "Préparer les réservations", exact: true }).last().click();
-  const payment = page.locator(".admin-panel").filter({ has: page.getByRole("heading", { name: /Carte bancaire & Apple Pay/ }) });
-  await expect(payment.locator(".status-pill")).toHaveText("À connecter");
-  await payment.getByText("Les étapes pour connecter carte et Apple Pay", { exact: true }).click();
-  await expect(payment.getByText(/SUMUP_API_KEY/)).toBeVisible();
-  await expect(payment.getByText(/profil Sandbox/).first()).toBeVisible();
-  await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Paramètres", exact: true }).click();
-  await expect(page.getByText("Carte bancaire & Apple Pay · 10 €", { exact: true })).toBeVisible();
+  const payment = page.locator(".admin-panel").filter({ has: page.getByRole("heading", { name: "Acompte par virement · 10 €", exact: true }) });
+  await expect(payment.locator(".status-pill")).toHaveText("À configurer");
+  await expect(payment.getByText(/Aucun e-mail d’instructions/)).toBeVisible();
+  await expect(page.getByLabel("IBAN du salon")).toBeVisible();
+  await expect(page.getByLabel("Délai de paiement du virement (heures)")).toHaveValue("24");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('le virement sur mobile reste en attente puis le salon confirme après réception', async ({ page, request }) => {
+  const login=await request.post('/api/admin/session',{data:{password:'test-only-password-32-characters'}});
+  expect(login.status()).toBe(200);
+  const headers={Cookie:login.headers()['set-cookie'].split(';')[0]};
+  const original=(await (await request.get('/api/admin',{headers})).json()).settings;
+  await page.context().addCookies((await request.storageState()).cookies);
+  await page.setViewportSize({width:390,height:844});await page.goto('/admin');
+  await page.getByRole('navigation',{name:'Administration'}).getByRole('button',{name:'Paramètres',exact:true}).click();
+  await page.getByLabel('Mode de paiement de l’acompte').selectOption('bank_transfer');
+  await page.getByLabel('Bénéficiaire du virement').fill('Bénéficiaire de test');
+  await page.getByLabel('IBAN du salon').fill('FR1420041010050500013M02606');
+  await page.getByRole('button',{name:'Enregistrer le mode de paiement',exact:true}).click();
+  await expect.poll(async () => (await (await request.get('/api/catalog')).json()).bookingPaymentsEnabled).toBe(true);
+  expect((await (await request.get('/api/catalog')).json()).settings.bankTransferIban).toBe('');
+  await page.goto('/reservation?prestation=knotless&variante=1-1');
+  await page.getByRole('button',{name:'Choisir mon créneau',exact:true}).click();
+  const date=addDays(parisDate(),20);
+  if(date.slice(0,7)!==parisDate().slice(0,7)) await page.getByRole('button',{name:'Mois suivant'}).click();
+  const dateLabel=new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'}).format(new Date(`${date}T12:00:00Z`));
+  await page.getByRole('button',{name:dateLabel,exact:true}).click();
+  await page.getByRole('button',{name:'08 h 30',exact:true}).click();
+  await page.getByRole('button',{name:'Continuer',exact:true}).click();
+  await page.getByLabel('Prénom',{exact:true}).fill('Cliente');await page.getByLabel('Nom',{exact:true}).fill('Virement');
+  await page.getByLabel('Téléphone',{exact:true}).fill('0612345678');await page.getByLabel('E-mail',{exact:true}).fill('test@example.com');
+  await page.getByRole('checkbox').check();
+  const responsePromise=page.waitForResponse(response=>response.url().endsWith('/api/bookings')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'Enregistrer ma réservation',exact:true}).click();
+  const response=await responsePromise;expect(response.status()).toBe(201);const result=await response.json();
+  const saved=result.booking;expect(result.paymentUrl).toBeNull();expect(result.emailSent).toBe(false);expect(saved.data.depositPaid).toBe(false);
+  await expect(page.getByRole('heading',{name:'Votre acompte est en attente.',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Votre acompte par virement',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Copier l’IBAN'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.goto('/admin');
+  await page.getByLabel('Filtrer les rendez-vous').selectOption('transfers');
+  const card=page.locator('.admin-booking').filter({hasText:saved.id});
+  await card.getByRole('button',{name:'Acompte reçu',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('checkbox',{name:/J’ai vérifié la réception/}).check();
+  await dialog.getByLabel('Référence bancaire (facultative)').fill('TEST-RECEPTION');
+  await dialog.getByRole('button',{name:'Valider et confirmer',exact:true}).click();
+  await expect(dialog).not.toBeVisible();
+  const bookingResponse=await request.get(`/api/bookings/${saved.id}?token=${encodeURIComponent(saved.token)}`);
+  const confirmed=await bookingResponse.json();expect(confirmed.status).toBe('confirmed');expect(confirmed.data.depositPaid).toBe(true);expect(confirmed.data.bankTransferReceiptReference).toBe('TEST-RECEPTION');
+  await page.goto(`/reservation/${saved.id}?token=${encodeURIComponent(saved.token)}`);
+  await expect(page.getByRole('heading',{name:'Votre moment est réservé.',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Votre acompte par virement',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'Ajouter à mon calendrier'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
+  expect((await request.put('/api/admin/settings',{headers,data:original})).status()).toBe(200);
 });

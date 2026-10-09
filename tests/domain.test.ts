@@ -9,7 +9,7 @@ import { initialSettings, initialServices, canBookVariant, durationIsEstimated, 
 import { referenceAppointments } from "../src/lib/acuity-catalog";
 import { retiredServiceIds, retiredReferenceIds, retiredGalleryIds } from "../src/lib/catalogue-selection";
 import { pinterestPhotoLabel, pinterestPhotos } from "../src/lib/pinterest-service-photos";
-import { availability, createBooking, readBooking, cancelBooking, createOrder, readOrder, updateOrder, createBlock, moveBooking, selection } from "../src/lib/domain";
+import { availability, createBooking, readBooking, cancelBooking, createOrder, readOrder, updateOrder, createBlock, moveBooking, selection, receiveBankTransfer } from "../src/lib/domain";
 import { saveContent, removeContent, saveSettings } from "../src/lib/admin";
 import { addDays, parisDate, timestamp, localTimeToEpoch } from "../src/lib/time";
 import { bookingSchema, orderSchema } from "../src/lib/validation";
@@ -117,7 +117,7 @@ test("un identifiant de commande répété ne décrémente pas deux fois le stoc
 });
 test("un acompte sans connexion de paiement bloque proprement la réservation", async () => {
   const service = (await one<Service>("services", "knotless"))!; service.deposit = { type: "percent", value: 25 }; await saveContent("services", service);
-  await assert.rejects(createBooking(booking()), /n’est pas encore activé/); assert.ok((await availability("knotless", "1-1", future())).includes("08:30"));
+  await assert.rejects(createBooking(booking()), /n’est pas encore configuré/); assert.ok((await availability("knotless", "1-1", future())).includes("08:30"));
 });
 test("les e-mails sont mis en attente sans annoncer un envoi non effectué", async () => {
   const saved = await createBooking(booking()); const queued = await (await db()).query("SELECT * FROM notifications WHERE booking_id=$1", [saved.id]); assert.equal(queued.rows.length, 2);
@@ -656,8 +656,8 @@ async function mockSumUp(operation: (mock: { requests: { url: string; method: st
   try { await operation({ requests, changes }); } finally { globalThis.fetch = original; }
 }
 
-test("carte et Apple Pay sont sélectionnés sans ouvrir les acomptes avant configuration", async () => {
-  assert.equal((await publicCatalog()).bookingPaymentProvider, "sumup");
+test("le virement est choisi par défaut et l’option SumUp exige sa configuration", async () => {
+  assert.equal((await publicCatalog()).bookingPaymentProvider, "bank_transfer");
   assert.equal(bookingPaymentsConfigured(), false);
   sumupTestConfig(); assert.equal(sumupConfigured(), true); assert.equal(bookingPaymentsConfigured(), true);
   process.env.DEMO_MODE = "true"; process.env.SUMUP_MODE = "live"; assert.equal(bookingPaymentsConfigured(), false);
@@ -834,4 +834,110 @@ test("SumUp accepte l’historique officiel sans transaction_id et refuse deux r
     changes.checkout = { transaction_id: undefined, transactions: [{ id: transactionId, status: "SUCCESSFUL" }] };
     assert.equal(await verifySumUpPayment(saved.id, saved.token), "confirmed");
   });
+});
+
+const testTransferSettings = { ...initialSettings, bookingPaymentMethod: 'bank_transfer' as const, bankTransferBeneficiary: 'Bénéficiaire de test', bankTransferIban: 'FR1420041010050500013M02606', bankTransferBic: 'PSSTFRPPXXX', bankTransferHoldHours: 24 };
+async function transferFixture() {
+  await saveSettings(testTransferSettings);
+  const service = (await one<Service>('services', 'knotless'))!;
+  await saveContent('services', { ...service, deposit: { type: 'fixed', value: 1000 } });
+}
+test('le virement valide son IBAN et le choix admin remplace une ancienne configuration SumUp', async () => {
+  await assert.rejects(saveSettings({ ...testTransferSettings, bankTransferIban: 'FR1520041010050500013M02606' }));
+  await saveSettings({ ...testTransferSettings, bankTransferIban: 'fr14 2004 1010 0505 0001 3m02 606' });
+  process.env.PAYMENT_PROVIDER = 'sumup';
+  const settings = await getSettings();
+  assert.equal(settings.bankTransferIban, testTransferSettings.bankTransferIban);
+  assert.equal(bookingReadiness([], [], settings, null).payment.provider, 'bank_transfer');
+  assert.equal(bookingPaymentsConfigured(settings), true);
+});
+test('le catalogue public ne divulgue pas les coordonnées bancaires et les anciens réglages sont complétés', async () => {
+  await transferFixture();
+  const publicData = await publicCatalog();
+  assert.equal(publicData.bookingPaymentProvider, 'bank_transfer'); assert.equal(publicData.bookingPaymentsEnabled, true);
+  for (const key of ['bankTransferIban', 'bankTransferBic', 'bankTransferBeneficiary'] as const) assert.equal(publicData.settings[key], '');
+  const previous = { ...initialSettings } as Record<string, unknown>;
+  for (const key of ['bookingPaymentMethod', 'bankTransferIban', 'bankTransferBic', 'bankTransferBeneficiary', 'bankTransferHoldHours']) delete previous[key];
+  await (await db()).query("UPDATE settings SET data=$1::jsonb WHERE id='salon'", [JSON.stringify(previous)]);
+  assert.equal((await getSettings()).bankTransferHoldHours, 24); assert.equal((await getSettings()).bankTransferIban, '');
+});
+test('le virement retient le créneau 24 h sans checkout ni e-mail avant validation et conserve son IBAN', async () => {
+  await transferFixture(); const before = Date.now(); const saved = await createBooking(booking());
+  assert.equal(saved.status, 'pending_payment'); assert.equal(saved.data.depositPaid, false); assert.equal(saved.data.deposit, 1000);
+  assert.ok(saved.expires_at! >= before + 24 * 3600000); assert.ok(saved.expires_at! <= Date.now() + 24 * 3600000);
+  assert.equal(await bookingCheckoutSession(saved), null);
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 0);
+  assert.ok(!(await availability('knotless', '1-1', future())).includes('08:30'));
+  await saveSettings({ ...testTransferSettings, bankTransferIban: '', bankTransferHoldHours: 1 });
+  assert.equal((await readBooking(saved.id, saved.token)).data.bankTransfer!.iban, testTransferSettings.bankTransferIban);
+  assert.equal((await readBooking(saved.id, saved.token)).expires_at, saved.expires_at);
+});
+test('le délai de virement ne dépasse jamais le début du rendez-vous', async () => {
+  await transferFixture(); await saveSettings({ ...testTransferSettings, bankTransferHoldHours: 72 });
+  const nextDay = addDays(parisDate(), 1); const saved = await createBooking(booking({ date: nextDay }));
+  assert.equal(saved.expires_at, saved.start_time);
+});
+test('deux validations de virement concurrentes enregistrent un acompte et une seule confirmation', async () => {
+  await transferFixture(); const saved = await createBooking(booking());
+  await Promise.all([receiveBankTransfer(saved.id, 'TEST-RECEPTION'), receiveBankTransfer(saved.id, 'DOUBLON')]);
+  const restored = await readBooking(saved.id, saved.token);
+  assert.equal(restored.status, 'confirmed'); assert.equal(restored.data.depositPaid, true);
+  assert.ok(restored.data.bankTransferReceivedAt); assert.equal(restored.data.bankTransferReceiptReference, 'TEST-RECEPTION');
+  assert.equal((await (await db()).query('SELECT id FROM payment_events')).rows.length, 1);
+  const messages = (await (await db()).query<{kind:string;body:string}>('SELECT kind,body FROM notifications')).rows;
+  assert.equal(messages.filter(message => message.kind.startsWith('confirmation-')).length, 1);
+  assert.equal(messages.filter(message => message.kind.startsWith('reminder-')).length, 1);
+  assert.ok(messages.every(message => !message.body.includes(testTransferSettings.bankTransferIban)));
+  assert.match(messages[0].body, /Acompte payé : 10\s*€/);
+});
+test('un virement tardif confirme seulement si le créneau est encore libre', async () => {
+  await transferFixture(); const saved = await createBooking(booking());
+  await (await db()).query('UPDATE bookings SET expires_at=$2 WHERE id=$1', [saved.id, Date.now()-1]);
+  assert.ok((await availability('knotless', '1-1', future())).includes('08:30'));
+  assert.equal((await receiveBankTransfer(saved.id)).status, 'confirmed');
+});
+test('un virement tardif en conflit enregistre la réception sans faux rendez-vous puis permet un déplacement', async () => {
+  await transferFixture(); const old = await createBooking(booking());
+  await (await db()).query('UPDATE bookings SET expires_at=$2 WHERE id=$1', [old.id, Date.now()-1]);
+  const next = await createBooking(booking({ name:'Autre cliente' }));
+  assert.deepEqual(await receiveBankTransfer(old.id), { status:'cancelled', reviewRequired:true });
+  assert.equal((await readBooking(old.id, old.token)).data.depositPaid, true);
+  assert.equal((await readBooking(next.id, next.token)).status, 'pending_payment');
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 0);
+  await assert.rejects(moveBooking(old.id, future(), '08:30', 'salon'));
+  await moveBooking(old.id, addDays(future(), 1), '08:30', 'salon');
+  const moved = await readBooking(old.id, old.token);
+  assert.equal(moved.status, 'confirmed'); assert.equal(moved.data.paymentReviewRequired, false); assert.equal(moved.data.depositPaid, true);
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length, 2);
+});
+test('un rendez-vous annulé ou sans acompte ne peut pas être confirmé comme virement reçu', async () => {
+  const noDeposit = await createBooking(booking()); await assert.rejects(receiveBankTransfer(noDeposit.id));
+  await transferFixture(); const saved = await createBooking(booking({ time:'13:30' }));
+  await cancelBooking(saved.id, saved.token); await assert.rejects(receiveBankTransfer(saved.id));
+  assert.equal((await readBooking(saved.id, saved.token)).data.depositPaid, false);
+});
+test('seule la session salon peut valider un virement et le serveur envoie la confirmation après son attestation', async () => {
+  await transferFixture(); const saved = await createBooking(booking());
+  const { NextRequest } = await import('next/server'); const { PATCH } = await import('../src/app/api/admin/bookings/[id]/route');
+  const { createSession } = await import('../src/lib/auth');
+  process.env.ADMIN_PASSWORD = 'test-only-admin-password-32-characters';
+  const cookie = 'fab_admin=' + createSession();
+  const request = (body: object, authenticated=true) => new NextRequest('https://example.com/api/admin/bookings/' + saved.id, { method:'PATCH',headers:{origin:'https://example.com',host:'example.com','Content-Type':'application/json',...(authenticated ? {cookie} : {})},body:JSON.stringify(body) });
+  const context = {params:Promise.resolve({id:saved.id})};
+  assert.equal((await PATCH(request({action:'receive_transfer',received:true},false),context)).status,401);
+  assert.equal((await PATCH(request({action:'receive_transfer',received:false}),context)).status,400);
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length,0);
+  process.env.RESEND_API_KEY='test-only-resend';process.env.EMAIL_FROM='test@example.com';
+  const previousFetch=globalThis.fetch;let sent=0;
+  globalThis.fetch=async (url,options) => {
+    assert.equal(String(url),'https://api.resend.com/emails');const email=JSON.parse(String(options?.body));
+    assert.match(email.subject,/Votre rendez-vous/);assert.ok(!email.text.includes(testTransferSettings.bankTransferIban));
+    sent++;return new Response(JSON.stringify({id:'test-only-mail'}),{status:200});
+  };
+  try {
+    const response=await PATCH(request({action:'receive_transfer',received:true}),context);assert.equal(response.status,200);
+    assert.equal((await response.json()).confirmationEmailStatus,'sent');
+    await PATCH(request({action:'receive_transfer',received:true}),context);assert.equal(sent,1);
+    assert.equal((await readBooking(saved.id,saved.token)).status,'confirmed');
+  } finally {globalThis.fetch=previousFetch;delete process.env.ADMIN_PASSWORD;}
 });

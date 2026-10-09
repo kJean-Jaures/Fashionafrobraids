@@ -43,13 +43,13 @@ Une modification d’horaires ou d’équipe incompatible avec un rendez-vous ex
 
 ## Paiements et confirmations
 
-La connexion du service de paiement choisi se prépare avec le compte marchand et les variables sécurisées du serveur ; les clés privées ne sont pas saisies dans l’administration. Voir [le guide d’activation](activer-reservations.md).
+Le mode choisi est le virement direct : enregistrer les coordonnées bancaires dans l’administration, puis vérifier la réception de l’acompte dans sa banque. Aucun compte marchand ni clé de paiement n’est nécessaire pour ce mode. Voir [le guide d’activation](activer-reservations.md).
 
 Une réservation avec acompte devient **Confirmée** après vérification du paiement. Exemple pour une prestation de 80 € : 10 € encaissés à la réservation, puis 70 € à régler au salon. Un rendez-vous « Acompte en attente » ne signifie pas que le paiement est acquis.
 
-L’acompte n’est pas remboursable si la cliente annule. Annuler depuis l’administration libère le créneau et arrête les messages futurs ; cela ne déclenche pas de remboursement automatique. Si le salon annule ou si un paiement a été reçu sans rendez-vous confirmé, examiner la situation chez le prestataire de paiement.
+L’acompte n’est pas remboursable si la cliente annule. Annuler depuis l’administration libère le créneau et arrête les messages futurs ; cela ne déclenche pas de remboursement automatique. Si le salon annule ou si un paiement a été reçu sans rendez-vous confirmé, traiter la situation directement avec la cliente et sa banque.
 
-Les commandes de la boutique utilisent actuellement le paiement au retrait au salon. La connexion SumUp choisie concerne les acomptes de réservation.
+Les commandes de la boutique utilisent actuellement le paiement au retrait au salon. Les acomptes de réservation utilisent le virement direct validé par le salon.
 
 ## E-mails et rappels
 
@@ -66,8 +66,12 @@ Dans la préparation, le **dernier passage observé** permet de vérifier que la
 Pour un essai avant ouverture, utiliser uniquement une réservation de test avec une adresse dont le propriétaire a autorisé l’utilisation. Vérifier la réception de la confirmation et du rappel, puis l’arrêt des rappels après annulation. Un rendez-vous réservé après l’heure prévue du rappel ne reçoit pas un deuxième message immédiat.
 
 
-### Carte bancaire et Apple Pay
+### Virement direct et validation d’acompte
 
-Le propriétaire a choisi SumUp Hosted Checkout avec versement sur son compte à La Banque Postale. Dans **Préparer les réservations** et **Paramètres → Connexions & confirmations**, le bloc « Carte bancaire & Apple Pay · 10 € » affiche la présence de la configuration et le guide d’activation. « Configuration présente » ne prouve pas un encaissement : un essai complet avec le profil Sandbox reste nécessaire.
+Dans **Paramètres** ou **Préparer les réservations**, renseigner le bénéficiaire et l’IBAN, puis enregistrer le mode **Virement bancaire**. Le BIC est facultatif ; le délai de paiement est de 24 h par défaut. Les coordonnées sont affichées sur le lien privé de la cliente et ne sont jamais envoyées par un e-mail d’instructions.
 
-Le compte du salon et son profil bancaire sont créés et validés chez SumUp. La clé privée et le code marchand sont renseignés dans les variables du serveur, pas dans le formulaire de gestion. Le site conserve le montant de 10 € et la règle d’annulation non remboursable par la cliente. Un paiement reçu sans créneau confirmable est signalé pour vérification du salon ; examiner la transaction SumUp avant de décider de la suite, sans demander un second paiement à la cliente.
+Dans **Rendez-vous**, le filtre **Virements à vérifier** regroupe les demandes en attente et les paiements à examiner. Après vérification des 10 € reçus sur le compte, cliquer **Acompte reçu**, attester la réception et choisir **Valider et confirmer**. La confirmation est préparée une seule fois, puis le rappel programmé. Les états d’envoi sont distincts du statut du rendez-vous ; vérifier la réception dans la boîte cliente.
+
+Un délai expiré libère le planning. Si le paiement arrive tard et que le créneau est occupé, le paiement reste enregistré et le rendez-vous n’est pas confirmé. **Choisir un autre créneau** conserve les 10 € déjà reçus et envoie la confirmation après déplacement réussi. Le site ne fait aucun remboursement automatique. L’annulation par la cliente conserve la règle d’acompte non remboursable ; une annulation par le salon doit être traitée directement avec elle.
+
+Les modes SumUp et PayPal restent facultatifs pour l’historique et un éventuel choix ultérieur. Leurs clés ne sont pas nécessaires au fonctionnement par virement direct.
