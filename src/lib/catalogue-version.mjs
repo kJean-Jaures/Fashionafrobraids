@@ -1,1 +1,1 @@
-export const catalogueVersion = "fashion-mollie-local-preview-20261009";
+export const catalogueVersion = "fashion-mollie-payment-20261009";
