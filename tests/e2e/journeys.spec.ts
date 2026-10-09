@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { addDays, parisDate } from "../../src/lib/time";
 import AxeBuilder from "@axe-core/playwright";
 import sharp from "sharp";
+import jsQR from "jsqr";
+import { readFile } from "node:fs/promises";
 
 test("accueil, navigation mobile, galerie et absence de débordement", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/");
@@ -390,6 +392,25 @@ test('le virement sur mobile reste en attente puis le salon confirme après réc
   const saved=result.booking;expect(result.paymentUrl).toBeNull();expect(result.emailSent).toBe(false);expect(saved.data.depositPaid).toBe(false);
   await expect(page.getByRole('heading',{name:'Votre acompte est en attente.',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Votre acompte par virement',exact:true})).toBeVisible();
+  const qr=page.getByRole('img',{name:'QR code pour le virement de l’acompte',exact:true});
+  await expect(qr).toBeVisible();
+  await expect.poll(()=>qr.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBe(480);
+  await expect(page.getByText(/Dans une application bancaire compatible/)).toBeVisible();
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('link',{name:'Enregistrer le QR code',exact:true}).click();
+  const download=await downloadPromise;expect(download.suggestedFilename()).toBe(`virement-${saved.id}.png`);
+  expect(await download.failure()).toBeNull();
+  const {data:qrPixels,info:qrInfo}=await sharp(await readFile((await download.path())!)).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const decodedQr=jsQR(new Uint8ClampedArray(qrPixels),qrInfo.width,qrInfo.height);expect(decodedQr).not.toBeNull();
+  const fields=decodedQr!.data.split('\n');expect(fields[5]).toBe('Bénéficiaire de test');expect(fields[6]).toBe('FR1420041010050500013M02606');expect(fields[7]).toBe('EUR10.00');expect(fields[10]).toBe(saved.id);
+  const afterDownload=await (await request.get(`/api/bookings/${saved.id}?token=${encodeURIComponent(saved.token)}`)).json();
+  expect(afterDownload.status).toBe('pending_payment');expect(afterDownload.data.depositPaid).toBe(false);
+  expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
+  await page.route('**/transfer-qr?*',route=>route.fulfill({status:503,json:{error:'QR indisponible dans cet essai'}}));
+  await page.reload();
+  await expect(page.getByRole('status').filter({hasText:'Le QR code n’a pas pu être chargé.'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Enregistrer le QR code',exact:true})).toHaveCount(0);
+  await page.unroute('**/transfer-qr?*');
   await expect(page.getByRole('button',{name:'Copier l’IBAN'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.goto('/admin');
@@ -406,6 +427,7 @@ test('le virement sur mobile reste en attente puis le salon confirme après réc
   await page.goto(`/reservation/${saved.id}?token=${encodeURIComponent(saved.token)}`);
   await expect(page.getByRole('heading',{name:'Votre moment est réservé.',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Votre acompte par virement',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('img',{name:'QR code pour le virement de l’acompte',exact:true})).toHaveCount(0);
   await expect(page.getByRole('link',{name:'Ajouter à mon calendrier'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);

@@ -850,3 +850,8 @@ input[type=checkbox] { accent-color:#883056; height:15px; width:15px; }
 .bank-transfer-details dl > div { padding: .75rem 0; border-bottom: 1px solid var(--border, #e6d8d5); }
 .bank-transfer-details dt { font-size: .8rem; opacity: .75; margin-bottom: .3rem; }
 .bank-transfer-details dd { margin: 0; overflow-wrap: anywhere; }
+.bank-transfer-qr { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: center; gap: 1.5rem; text-align: left; margin: 1.5rem 0; }
+.bank-transfer-qr img { display: block; width: 100%; max-width: 240px; height: auto; background: #fff; border-radius: 8px; }
+.bank-transfer-qr h3 { margin-top: 0; }
+.bank-transfer-qr .button { margin: .5rem 0; }
+@media (max-width: 640px) { .bank-transfer-qr { grid-template-columns: minmax(0, 1fr); } .bank-transfer-qr img { margin-inline: auto; } }

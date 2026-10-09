@@ -1,1 +1,1 @@
-export const catalogueVersion = "fashion-bank-transfer-20261009";
+export const catalogueVersion = "fashion-bank-transfer-qr-20261009";

@@ -22,6 +22,9 @@ import { posterServices } from "../src/lib/poster-catalog";
 import { bookingCheckoutSession } from "../src/lib/booking-payments";
 import { bookingPaymentsConfigured, sumupConfigured } from "../src/lib/payment-config";
 import { handleSumUpWebhook, sumupCheckoutSession, verifySumUpPayment } from "../src/lib/sumup-payments";
+import { bankTransferQrPayload, BankTransferQrError } from "../src/lib/bank-transfer-qr";
+import jsQR from "jsqr";
+import sharp from "sharp";
 
 let directory: string;
 const future = () => addDays(parisDate(), 5);
@@ -940,4 +943,58 @@ test('seule la session salon peut valider un virement et le serveur envoie la co
     await PATCH(request({action:'receive_transfer',received:true}),context);assert.equal(sent,1);
     assert.equal((await readBooking(saved.id,saved.token)).status,'confirmed');
   } finally {globalThis.fetch=previousFetch;delete process.env.ADMIN_PASSWORD;}
+});
+
+test('le QR SEPA encode UTF-8, montant exact et référence sans imposer un BIC', () => {
+  const payload = bankTransferQrPayload({ beneficiary:'Équipe du salon', iban:'fr14 2004 1010 0505 0001 3m02 606', amount:1005, reference:'RDV-TEST-QR' });
+  assert.deepEqual(payload.split('\n'), ['BCD','002','1','SCT','','Équipe du salon','FR1420041010050500013M02606','EUR10.05','','','RDV-TEST-QR']);
+  const bic = bankTransferQrPayload({ beneficiary:'Salon', iban:testTransferSettings.bankTransferIban, bic:'psstfrppxxx', amount:1000, reference:'RDV-TEST' });
+  assert.equal(bic.split('\n')[4], 'PSSTFRPPXXX'); assert.equal(bic.split('\n')[7], 'EUR10.00');
+});
+test('le QR refuse les montants invalides et les coordonnées qui dépassent le format SEPA', () => {
+  const input = { beneficiary:'Salon', iban:testTransferSettings.bankTransferIban, amount:1000, reference:'RDV-TEST' };
+  for (const patch of [{amount:0},{amount:-1},{amount:10.5},{amount:100000000000},{iban:'FR1520041010050500013M02606'},{bic:'INVALIDE!'},{beneficiary:'Salon\nEUR0.01'},{beneficiary:'S'.repeat(71)},{reference:'R'.repeat(141)},{reference:'RDV\r\nAUTRE'},{beneficiary:'É'.repeat(70),reference:'€'.repeat(100)}]) {
+    assert.throws(() => bankTransferQrPayload({...input,...patch}), BankTransferQrError);
+  }
+});
+test('le PNG privé est lisible et utilise le montant, la référence et les coordonnées conservées avec le rendez-vous', async () => {
+  await transferFixture(); const saved = await createBooking(booking());
+  await saveSettings({...testTransferSettings,bankTransferBeneficiary:'Autre bénéficiaire',bankTransferBic:''});
+  const { NextRequest } = await import('next/server'); const { GET } = await import('../src/app/api/bookings/[id]/transfer-qr/route');
+  const context = {params:Promise.resolve({id:saved.id})};
+  const request = (query='') => new NextRequest(`https://example.com/api/bookings/${saved.id}/transfer-qr?token=${saved.token}${query}`);
+  const png = await GET(request('&amount=1&iban=INVENTE&download=1'),context);
+  assert.equal(png.status,200); assert.equal(png.headers.get('content-type'),'image/png');
+  assert.equal(png.headers.get('cache-control'),'private, no-store'); assert.equal(png.headers.get('referrer-policy'),'no-referrer');
+  assert.match(png.headers.get('content-disposition')!,new RegExp(`^attachment; filename="virement-${saved.id}\\.png"$`));
+  const {data,info}=await sharp(Buffer.from(await png.arrayBuffer())).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  assert.equal(info.width,480);assert.equal(info.height,480);
+  const decoded = jsQR(new Uint8ClampedArray(data),info.width,info.height); assert.ok(decoded,'Le PNG doit être décodable par un lecteur QR indépendant');
+  const fields=decoded.data.split('\n');assert.equal(fields[5],'Bénéficiaire de test');assert.equal(fields[6],testTransferSettings.bankTransferIban);assert.equal(fields[7],'EUR10.00');assert.equal(fields[10],saved.id);
+  const after=await readBooking(saved.id,saved.token);assert.equal(after.status,'pending_payment');assert.equal(after.data.depositPaid,false);
+  assert.equal((await (await db()).query('SELECT id FROM notifications')).rows.length,0);
+});
+test('le QR ne divulgue rien sans le lien privé et disparaît après expiration, annulation ou paiement', async () => {
+  await transferFixture(); const saved=await createBooking(booking());
+  const { NextRequest } = await import('next/server'); const { GET } = await import('../src/app/api/bookings/[id]/transfer-qr/route');
+  const request = (token=saved.token) => new NextRequest(`https://example.com/api/bookings/${saved.id}/transfer-qr?token=${token}`);
+  const context={params:Promise.resolve({id:saved.id})};
+  for(const token of ['', 'incorrect', 'x'.repeat(43)]) {
+    const response=await GET(request(token),context);assert.equal(response.status,404);assert.equal(response.headers.get('cache-control'),'private, no-store');
+    assert.ok(!(await response.text()).includes(testTransferSettings.bankTransferIban));
+  }
+  await (await db()).query('UPDATE bookings SET expires_at=$2 WHERE id=$1',[saved.id,Date.now()-1]);
+  assert.equal((await GET(request(),context)).status,409);
+  await (await db()).query('UPDATE bookings SET expires_at=$2 WHERE id=$1',[saved.id,Date.now()+3600000]);
+  await cancelBooking(saved.id,saved.token);assert.equal((await GET(request(),context)).status,409);
+  const paid=await createBooking(booking());await receiveBankTransfer(paid.id);
+  assert.equal((await GET(new NextRequest(`https://example.com/api/bookings/${paid.id}/transfer-qr?token=${paid.token}`),{params:Promise.resolve({id:paid.id})})).status,409);
+});
+test('des coordonnées non encodables gardent la réservation en attente avec un refus QR explicite', async () => {
+  await transferFixture();await saveSettings({...testTransferSettings,bankTransferBeneficiary:'S'.repeat(71)});
+  const saved=await createBooking(booking());
+  const { NextRequest } = await import('next/server'); const { GET } = await import('../src/app/api/bookings/[id]/transfer-qr/route');
+  const response=await GET(new NextRequest(`https://example.com/api/bookings/${saved.id}/transfer-qr?token=${saved.token}`),{params:Promise.resolve({id:saved.id})});
+  assert.equal(response.status,400);assert.match((await response.json()).error,/coordonnées de votre réservation/);
+  assert.equal((await readBooking(saved.id,saved.token)).status,'pending_payment');
 });
