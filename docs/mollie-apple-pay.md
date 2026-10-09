@@ -9,6 +9,8 @@ Le compte Mollie du salon a été créé et son activation est en cours, selon l
 3. Dans les paramètres privés du serveur (ou `.env.local` pour une installation locale), ajouter la clé API **de test** dans `MOLLIE_API_KEY`. Définir `MOLLIE_MODE=test`, `PAYMENT_PROVIDER=mollie` et `PUBLIC_SITE_URL`, puis redémarrer. Ne jamais envoyer ni versionner les clés. Avec une clé API, le profil et le mode sont fixés par la clé ; le serveur contrôle aussi le mode de la réponse.
 4. `PUBLIC_SITE_URL` doit être une adresse **HTTPS publique qui joint cette application**. Le webhook `/api/payments/mollie/webhook` doit être accessible à Mollie ; le retour navigateur est `/api/payments/mollie/return`. Une adresse localhost ne convient pas au webhook. Le domaine encore relié à Squarespace ne joint pas le nouveau site. Utiliser un hébergement de test HTTPS avant de déplacer le domaine. Aucun déploiement public ni changement DNS n’a été réalisé par cette intégration.
 
+Pour commencer depuis le PC Windows, suivre [le test local avec un lien HTTPS temporaire](test-mollie-local-windows.md). Il conserve les réglages privés existants et le mode Mollie de test. Ce lien sert aux essais avant l’hébergement permanent.
+
 ## Tester puis ouvrir les encaissements
 
 - En mode test, utiliser les états simulés du checkout Mollie : payé, refusé, annulé et expiré. Une simple autorisation ou un retour navigateur ne confirme pas le rendez-vous.
